@@ -5,13 +5,11 @@ Minimal R client for FinancialModelingPrep (v3 & stable).
 Get prices, metrics (key/ratios/growth/EV), profiles,
 FX/crypto/commodities quotes, and exchange lists — as tidy tibbles.
 
-################ 
-
 # Install
 
-################ 
+install.packages(“pak”)
 
-install.packages(“pak”) pak::pak(“Boersenbrunch/fmpbrunch”)
+pak::pak(“Boersenbrunch/fmpbrunch”)
 
 # Quickstart
 
