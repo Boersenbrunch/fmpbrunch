@@ -1,0 +1,15 @@
+Package: fmpbrunch
+Title: Lightweight Client for FinancialModelingPrep (v3 & stable)
+Version: 0.2.0
+Authors@R: c(
+    person("Martin", family = "Kiontke", email = "boersenbrunch@gmail.com", role = c("aut","cre")))
+Description: Minimal R client for FinancialModelingPrep: prices, metrics (key/ratios/growth/EV),
+    profiles, FX/crypto/commodities quotes, and exchange lists. Multi-symbol, tidy tibbles.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends: R (>= 4.1)
+Imports:
+    dplyr,
+    jsonlite,
+    tibble
