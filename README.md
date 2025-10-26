@@ -51,6 +51,12 @@ All avaialble exchanges
 
 fmp_exchanges(“stable”)
 
+Bulk profile request
+
+fmp_profiles_bulk(0)
+
+fmp_profiles_bulk_all(max_parts = 100)
+
 # License
 
 MIT © Börsenbrunch

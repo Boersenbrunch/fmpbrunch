@@ -738,5 +738,59 @@ fmp_stock_list <- function(version = c("v3","stable")) {
   .parse_stock_list_any(js)
 }
 
+# --- PROFILES BULK (stable only) ---------------------------------------------
 
+#' Get company profiles in bulk (stable only)
+#'
+#' Lädt Company Profiles in Batches/Teilen über den `part`-Parameter.
+#' Du kannst mehrere Parts auf einmal angeben (z. B. `parts = 0:2`).
+#'
+#' @param parts Integer-Vektor mit den Part-IDs (z. B. 0, 1, 2, ...).
+#' @return Tibble mit Profilfeldern (z. B. symbol, companyName, industry, sector, website, ipoDate, ...)
+#' @examples
+#' \dontrun{
+#' fmp_set_key()  # liest FMP_API_KEY aus der Umgebung
+#' p0 <- fmp_profiles_bulk(parts = 0)
+#' p01 <- fmp_profiles_bulk(parts = 0:1)
+#' }
+#' @export
+fmp_profiles_bulk <- function(parts = 0L) {
+  key <- .get_key()
+
+  fetch_part <- function(p) {
+    url <- paste0("https://financialmodelingprep.com/stable/profile-bulk?",
+                  .qs(list(part = as.integer(p), apikey = key)))
+    js <- jsonlite::fromJSON(url, simplifyVector = TRUE)
+
+    # Bulk liefert i. d. R. direkt eine Liste/df; ggf. steckt's unter $data
+    cand <- if (!is.null(js$data)) js$data else js
+    df   <- .rectify_records(cand)
+
+    # Dates weich parsen
+    for (dc in c("ipoDate","date","founded")) {
+      if (dc %in% names(df)) {
+        suppressWarnings(df[[dc]] <- tryCatch(as.Date(df[[dc]]), error = function(e) df[[dc]]))
+      }
+    }
+    tibble::as_tibble(df)
+  }
+
+  out <- dplyr::bind_rows(lapply(parts, fetch_part))
+  if (nrow(out) && "symbol" %in% names(out)) out <- dplyr::arrange(out, symbol)
+  out
+}
+
+
+fmp_profiles_bulk_all <- function(max_parts = 100L) {
+  out <- list()
+  k <- 0L
+  repeat {
+    if (k >= max_parts) break
+    df <- fmp_profiles_bulk(parts = k)
+    if (!nrow(df)) break
+    out[[length(out) + 1L]] <- df
+    k <- k + 1L
+  }
+  dplyr::bind_rows(out)
+}
 
