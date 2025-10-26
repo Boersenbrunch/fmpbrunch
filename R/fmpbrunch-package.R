@@ -6,13 +6,13 @@
 #'
 #' @details
 #' **Funktionen:**
-#' - `fmp_prices()`  – historische Preise (v3 & stable)
-#' - `fmp_metrics()` – Kennzahlen (key/ratios/growth/ev; TTM optional; v3 & stable)
-#' - `fmp_profile()` – Firmenprofile (v3 & stable)
-#' - FX: `fmp_fx_quotes()` - Alle verfügbaren Währungspaare und aktuelle Kurse
-#' - Crypto: `fmp_crypto_quotes()` - Alle verfügbaren Crypto Währungen und aktuelle Kurse
-#' - Commodities: `fmp_commodity_quotes()` - Alle verfügbaren Rohstoffe und aktuelle Kurese
-#' - Exchanges: `fmp_exchanges()` - Alle Verfügbaren Börsen
+#' - `fmp_prices()`  – historical quotes (v3 & stable)
+#' - `fmp_metrics()` – Metrics (key/ratios/growth/ev; TTM optional; v3 & stable)
+#' - `fmp_profile()` – Company profiles (v3 & stable)
+#' - FX: `fmp_fx_quotes()` - All available forex pairs
+#' - Crypto: `fmp_crypto_quotes()` -All available crypto quotes
+#' - Commodities: `fmp_commodity_quotes()` - All available commodity quotes
+#' - Exchanges: `fmp_exchanges()` - All available exchanges
 #'
 #' **Quick Start**
 #' \preformatted{
@@ -27,7 +27,8 @@
 #' fmp_exchanges("stable")
 #' }
 #'
-#' @seealso [`fmp_prices()`], [`fmp_metrics()`], [`fmp_profile()`]
+#' @seealso [`fmp_prices()`], [`fmp_metrics()`], [`fmp_profile()`],
+#'  [`fmp_fx_quotes()`], [`fmp_crypto_quotes()`], [`fmp_commodity_quotes()`]
 #'
 #' @docType package
 #' @name fmpbrunch
