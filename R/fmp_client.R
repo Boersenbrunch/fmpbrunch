@@ -85,10 +85,25 @@ NULL
 #'
 #' Setzt den API-Key für Abfragen (liest sonst FMP_API_KEY aus der Umgebung).
 #' @export
-set_fmp_key <- function(key = NULL) {
+#' @examples
+#' \dontrun{
+#' Sys.setenv(FMP_API_KEY = "YOUR_KEY")
+#' fmp_set_key("YOUR_KEY")
+#' }
+fmp_set_key <- function(key = NULL) {
   if (is.null(key) || !nzchar(key)) key <- Sys.getenv("FMP_API_KEY")
-  if (!nzchar(key)) stop("API-Key fehlt: set_fmp_key('...') oder Sys.setenv(FMP_API_KEY='...')", call. = FALSE)
+  if (!nzchar(key)) stop("API-Key fehlt: fmp_set_key('...') oder Sys.setenv(FMP_API_KEY='...')", call. = FALSE)
   .fmp_key$key <- key; invisible(key)
+}
+
+#' @name fmp_set_key
+#' @rdname fmp_set_key
+#' @export
+#' @usage set_fmp_key(key = NULL)
+#' @details `set_fmp_key()` is deprecated. Use `fmp_set_key()` instead.
+set_fmp_key <- function(key = NULL) {
+  .Deprecated("fmp_set_key")
+  fmp_set_key(key)
 }
 
 

@@ -19,7 +19,7 @@ library(fmpbrunch)
 
 Sys.setenv(FMP_API_KEY = “YOUR_KEY”) or via
 
-set_fmp_key(“YOUR_KEY”)
+fmp_set_key(“YOUR_KEY”)
 
 # Currently avaialble endpoints
 
