@@ -25,22 +25,33 @@ set_fmp_key(“YOUR_KEY”)
 
 # Currently avaialble endpoints
 
-Prices fmp_prices(c(“AAPL”,“MSFT”), from = “2025-10-15”, version =
-“stable”)
+Prices
 
-Metrics fmp_metrics(“AAPL”, metric = “key”, ttm = TRUE, version =
-“stable”)
+fmp_prices(c(“AAPL”,“MSFT”), from = “2025-10-15”, version = “stable”)
 
-Profiles fmp_profile(c(“AAPL”,“MSFT”), version = “stable”)
+Metrics
 
-FX all avaialble pairs  
+fmp_metrics(“AAPL”, metric = “key”, ttm = TRUE, version = “stable”)
+
+Profiles
+
+fmp_profile(c(“AAPL”,“MSFT”), version = “stable”)
+
+FX all avaialble pairs
+
 fmp_fx_quotes(“stable”)
 
-All avaialble Cryptos fmp_crypto_quotes(“stable”)
+All avaialble Cryptos
 
-All avaialble Commodities fmp_commodity_quotes(“stable”)
+fmp_crypto_quotes(“stable”)
 
-All avaialble exchanges fmp_exchanges(“stable”)
+All avaialble Commodities
+
+fmp_commodity_quotes(“stable”)
+
+All avaialble exchanges
+
+fmp_exchanges(“stable”)
 
 # License
 

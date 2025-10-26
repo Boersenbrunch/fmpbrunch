@@ -36,24 +36,31 @@ set_fmp_key("YOUR_KEY")
 
 
 Prices
+
 fmp_prices(c("AAPL","MSFT"), from = "2025-10-15", version = "stable") 
 
 Metrics
+
 fmp_metrics("AAPL", metric = "key", ttm = TRUE, version = "stable") 
 
 Profiles
+
 fmp_profile(c("AAPL","MSFT"), version = "stable")
 
-FX all avaialble pairs   
+FX all avaialble pairs  
+
 fmp_fx_quotes("stable")  
 
 All avaialble Cryptos
+
 fmp_crypto_quotes("stable")  
 
 All avaialble Commodities
+
 fmp_commodity_quotes("stable") 
 
 All avaialble exchanges
+
 fmp_exchanges("stable")         
 
 
