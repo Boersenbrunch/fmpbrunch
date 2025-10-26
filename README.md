@@ -53,4 +53,4 @@ fmp_exchanges(“stable”)
 
 # License
 
-MIT © Martin Kiontke
+MIT © Börsenbrunch
