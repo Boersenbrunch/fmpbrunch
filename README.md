@@ -13,60 +13,35 @@ FX/crypto/commodities quotes, and exchange lists — as tidy tibbles.
 
 install.packages(“pak”) pak::pak(“Boersenbrunch/fmpbrunch”)
 
-################ 
-
 # Quickstart
-
-################ 
 
 library(fmpbrunch)
 
 # Set your FMP key
 
-Sys.setenv(FMP_API_KEY = “YOUR_KEY”)
-
-# or via
+Sys.setenv(FMP_API_KEY = “YOUR_KEY”) or via
 
 set_fmp_key(“YOUR_KEY”)
 
-################################### 
-
 # Currently avaialble endpoints
 
-################################### 
+Prices fmp_prices(c(“AAPL”,“MSFT”), from = “2025-10-15”, version =
+“stable”)
 
-# Prices
+Metrics fmp_metrics(“AAPL”, metric = “key”, ttm = TRUE, version =
+“stable”)
 
-fmp_prices(c(“AAPL”,“MSFT”), from = “2025-10-15”, version = “stable”)
+Profiles fmp_profile(c(“AAPL”,“MSFT”), version = “stable”)
 
-# Metrics
-
-fmp_metrics(“AAPL”, metric = “key”, ttm = TRUE, version = “stable”)
-
-# Profiles
-
-fmp_profile(c(“AAPL”,“MSFT”), version = “stable”)
-
-# FX all avaialble pairs
-
+FX all avaialble pairs  
 fmp_fx_quotes(“stable”)
 
-# all avaialble Cryptos
+All avaialble Cryptos fmp_crypto_quotes(“stable”)
 
-fmp_crypto_quotes(“stable”)
+All avaialble Commodities fmp_commodity_quotes(“stable”)
 
-# all avaialble Commodities
-
-fmp_commodity_quotes(“stable”)
-
-# all avaialble exchanges
-
-fmp_exchanges(“stable”)
-
-#################### 
+All avaialble exchanges fmp_exchanges(“stable”)
 
 # License
-
-#################### 
 
 MIT © Martin Kiontke
