@@ -6,18 +6,18 @@
 \alias{fmpbrunch-package}
 \title{fmpbrunch: Minimal FMP Client (v3 & stable)}
 \description{
-Light R-Client for FinancialModelingPrep. Support prices,
-Metrics (key/ratios/growth/ev), profiles and more – everything with tidy tibbles.
+Leichter R-Client für FinancialModelingPrep. Unterstützt Kurse,
+Metrics (key/ratios/growth/ev) und Profile – alles als tidy tibbles.
 }
 \details{
 \strong{Funktionen:}
 \itemize{
-\item \code{fmp_prices()}  – historical prices (v3 & stable)
+\item \code{fmp_prices()}  – historical quotes (v3 & stable)
 \item \code{fmp_metrics()} – Metrics (key/ratios/growth/ev; TTM optional; v3 & stable)
-\item \code{fmp_profile()} – company profiles (v3 & stable)
-\item FX: \code{fmp_fx_quotes()} - All available currency pairs
-\item Crypto: \code{fmp_crypto_quotes()} - All available cryptos
-\item Commodities: \code{fmp_commodity_quotes()} - All avaialble commodities
+\item \code{fmp_profile()} – Company profiles (v3 & stable)
+\item FX: \code{fmp_fx_quotes()} - All available forex pairs
+\item Crypto: \code{fmp_crypto_quotes()} -All available crypto quotes
+\item Commodities: \code{fmp_commodity_quotes()} - All available commodity quotes
 \item Exchanges: \code{fmp_exchanges()} - All available exchanges
 }
 
@@ -35,15 +35,11 @@ fmp_exchanges("stable")
 }
 }
 \seealso{
-\code{\link[=fmp_prices]{fmp_prices()}}, \code{\link[=fmp_metrics]{fmp_metrics()}}, \code{\link[=fmp_profile]{fmp_profile()}}
+\code{\link[=fmp_prices]{fmp_prices()}}, \code{\link[=fmp_metrics]{fmp_metrics()}}, \code{\link[=fmp_profile]{fmp_profile()}},
+\code{\link[=fmp_fx_quotes]{fmp_fx_quotes()}}, \code{\link[=fmp_crypto_quotes]{fmp_crypto_quotes()}}, \code{\link[=fmp_commodity_quotes]{fmp_commodity_quotes()}}
 }
 \author{
-\strong{Maintainer}:
-
-Authors:
-\itemize{
-  \item Börsenbrunch \email{boersenbrunch@gmail.com}
-}
+\strong{Maintainer}: Börsenbrunch \email{boersenbrunch@gmail.com}
 
 }
 \keyword{internal}
