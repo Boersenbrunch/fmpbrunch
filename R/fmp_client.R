@@ -677,3 +677,66 @@ fmp_commodity_quotes <- function(version = c("v3","stable")) {
   out
 }
 
+# --- STOCKS LIST (v3 & stable) -----------------------------------------------
+
+.parse_stock_list_any <- function(js) {
+  cand <- if (!is.null(js$data)) js$data else js
+  df   <- .rectify_records(cand)
+
+  # Harmonisierung: Namen & typische Felder
+  if (!"symbol" %in% names(df)) {
+    for (alt in c("ticker","code","symbolName")) {
+      if (alt %in% names(df)) { df$symbol <- df[[alt]]; break }
+    }
+  }
+  if (!"name" %in% names(df) && "companyName" %in% names(df)) df$name <- df$companyName
+  if (!"exchange" %in% names(df)) {
+    for (alt in c("exchangeShortName","exchangeName","stockExchange")) {
+      if (alt %in% names(df)) { df$exchange <- df[[alt]]; break }
+    }
+  }
+  # weiche Numerik
+  for (nm in intersect(c("price","changes","change","marketCap"), names(df))) {
+    suppressWarnings(df[[nm]] <- as.numeric(df[[nm]]))
+  }
+
+  # sinnvolle Sortierung
+  if ("symbol" %in% names(df)) df <- dplyr::arrange(df, symbol)
+
+  tibble::as_tibble(df)
+}
+
+#' Get full stocks list (v3 & stable)
+#'
+#' Liefert die komplette Liste aller verfügbaren Aktien (Ticker, Name, Börse, …).
+#' - v3:     `/api/v3/stock/list`
+#' - stable: `/stable/stock-list`
+#'
+#' @param version Zeichenkette: `"v3"` oder `"stable"`.
+#' @return Tibble mit Spalten wie `symbol`, `name`, `exchange`, optional `price`, `type`, `currency`, `isin`, `cusip` (abhängig vom Endpoint).
+#' @examples
+#' \dontrun{
+#' fmp_set_key()  # liest FMP_API_KEY aus der Umgebung
+#' sl_v3 <- fmp_stock_list("v3")
+#' sl_st <- fmp_stock_list("stable")
+#' head(sl_v3)
+#' }
+#' @export
+fmp_stock_list <- function(version = c("v3","stable")) {
+  version <- match.arg(version)
+  key <- .get_key()
+
+  url <- if (version == "v3") {
+    paste0("https://financialmodelingprep.com/api/v3/stock/list?",
+           .qs(list(apikey = key)))
+  } else {
+    paste0("https://financialmodelingprep.com/stable/stock-list?",
+           .qs(list(apikey = key)))
+  }
+
+  js <- jsonlite::fromJSON(url, simplifyVector = TRUE)
+  .parse_stock_list_any(js)
+}
+
+
+
