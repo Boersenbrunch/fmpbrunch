@@ -21,7 +21,7 @@ Liefert die vollständige Liste aller verfügbaren Börsen/Handelsplätze.
 }
 \examples{
 \dontrun{
-set_fmp_key("YOUR_KEY")
+fmp_set_key("YOUR_KEY")
 ex_v3 <- fmp_exchanges("v3")
 ex_st <- fmp_exchanges("stable")
 head(ex_v3)

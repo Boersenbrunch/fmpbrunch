@@ -3,6 +3,8 @@
 #' @importFrom dplyr bind_rows arrange group_by slice_head ungroup mutate summarise desc
 #' @importFrom tibble as_tibble
 #' @importFrom jsonlite fromJSON
+#' @importFrom stats setNames
+#' @importFrom curl curl new_handle handle_setheaders
 NULL
 
 
@@ -10,7 +12,7 @@ NULL
 .fmp_key <- new.env(parent = emptyenv())
 .get_key <- function() {
   k <- .fmp_key$key; if (is.null(k) || !nzchar(k)) k <- Sys.getenv("FMP_API_KEY")
-  if (!nzchar(k)) stop("API-Key fehlt: set_fmp_key() aufrufen.", call. = FALSE)
+  if (!nzchar(k)) stop("API-Key fehlt: fmp_set_key(YOUR KEY) aufrufen.", call. = FALSE)
   k
 }
 .enc <- function(x) utils::URLencode(as.character(x), reserved = TRUE)
@@ -74,11 +76,6 @@ NULL
 
 # ---- Mini-Fetcher (ohne fill/nullValue) --------------------------------------
 .fetch_json <- function(url) jsonlite::fromJSON(url, simplifyVector = TRUE)
-
-.enc <- function(x) utils::URLencode(as.character(x), reserved = TRUE)
-.qs  <- function(lst) paste0(names(lst), "=", vapply(lst, .enc, ""), collapse = "&")
-
-
 
 
 #' Set FMP API key
@@ -372,7 +369,6 @@ fmp_profile <- function(symbols, version = c("v3","stable")) {
 
 
 # --- FOREX QUOTES (v3 & stable) ----------------------------------------------
-# --- FOREX QUOTES (v3 fix, stable fix) ---------------------------------------
 
 # nutzt vorhandene Helfer: .get_key(), .qs(), .rectify_records(), .parse_fx_any()
 
@@ -498,7 +494,7 @@ fmp_fx_quotes <- function(version = c("v3","stable")) {
 #' @return Tibble mit Feldern wie `name`, `acronym` (MIC/Short), `country`, `currency`, etc. – je nach Endpoint.
 #' @examples
 #' \dontrun{
-#' set_fmp_key("YOUR_KEY")
+#' fmp_set_key("YOUR_KEY")
 #' ex_v3 <- fmp_exchanges("v3")
 #' ex_st <- fmp_exchanges("stable")
 #' head(ex_v3)
@@ -738,59 +734,345 @@ fmp_stock_list <- function(version = c("v3","stable")) {
   .parse_stock_list_any(js)
 }
 
-# --- PROFILES BULK (stable only) ---------------------------------------------
 
-#' Get company profiles in bulk (stable only)
-#'
-#' Lädt Company Profiles in Batches/Teilen über den `part`-Parameter.
-#' Du kannst mehrere Parts auf einmal angeben (z. B. `parts = 0:2`).
-#'
-#' @param parts Integer-Vektor mit den Part-IDs (z. B. 0, 1, 2, ...).
-#' @return Tibble mit Profilfeldern (z. B. symbol, companyName, industry, sector, website, ipoDate, ...)
-#' @examples
-#' \dontrun{
-#' fmp_set_key()  # liest FMP_API_KEY aus der Umgebung
-#' p0 <- fmp_profiles_bulk(parts = 0)
-#' p01 <- fmp_profiles_bulk(parts = 0:1)
-#' }
+# --- Bulk: Company Profiles (stable) -------------------------------------------
+
+
+
+#' Get company profiles in bulk (stable only, CSV; robust gegen Rate-Limits)
+#' @param parts   Integer-Vektor, z.B. 0:2
+#' @param retries Anzahl Retries pro Part (Default 3)
+#' @param pause   Grundpause zwischen Retries in Sekunden (Default 0.6)
+#' @return Tibble mit Profilfeldern (oder leer, mit Warnung bei Limit)
 #' @export
-fmp_profiles_bulk <- function(parts = 0L) {
+fmp_profiles_bulk <- function(parts = 0L, retries = 3L, pause = 0.6) {
   key <- .get_key()
 
+  is_limit_json <- function(raw) {
+    # wenn Response wie {"Error Message":"Limit Reach..."} ist
+    head_txt <- rawToChar(raw[seq_len(min(length(raw), 512))])
+    grepl('"Error Message"\\s*:\\s*"Limit Reach', head_txt, ignore.case = TRUE, perl = TRUE)
+  }
+
+  fetch_csv_file <- function(url, retries, pause) {
+    attempt <- 0L
+    repeat {
+      attempt <- attempt + 1L
+      res <- try(curl::curl_fetch_memory(url), silent = TRUE)
+      if (inherits(res, "try-error")) {
+        Sys.sleep(runif(1, 0.2, 0.6) * attempt * pause)
+        if (attempt > retries) return(list(df = tibble::tibble(), limited = FALSE))
+        next
+      }
+
+      # Rate-Limit JSON?
+      if (is_limit_json(res$content)) {
+        if (attempt > retries) {
+          return(list(df = tibble::tibble(), limited = TRUE))
+        }
+        Sys.sleep(runif(1, 0.8, 1.4) * attempt * pause)  # etwas länger warten
+        next
+      }
+
+      # sonst CSV in Tempfile schreiben & robust einlesen
+      tf <- tempfile(fileext = ".csv")
+      on.exit(unlink(tf), add = TRUE)
+      con <- file(tf, open = "wb"); writeBin(res$content, con); close(con)
+
+      df <- tryCatch(
+        utils::read.csv(tf, stringsAsFactors = FALSE, check.names = FALSE,
+                        blank.lines.skip = TRUE, na.strings = c("", "NA")),
+        error = function(e) {
+          tryCatch(
+            utils::read.csv(tf, stringsAsFactors = FALSE, check.names = FALSE,
+                            fill = TRUE, comment.char = "", na.strings = c("", "NA")),
+            error = function(e2) data.frame()
+          )
+        }
+      )
+      return(list(df = tibble::as_tibble(df), limited = FALSE))
+    }
+  }
+
+  make_url <- function(p) {
+    paste0(
+      "https://financialmodelingprep.com/stable/profile-bulk?",
+      .qs(list(part = as.integer(p), apikey = key, datatype = "csv"))
+    )
+  }
+
+  any_limited <- FALSE
   fetch_part <- function(p) {
-    url <- paste0("https://financialmodelingprep.com/stable/profile-bulk?",
-                  .qs(list(part = as.integer(p), apikey = key)))
-    js <- jsonlite::fromJSON(url, simplifyVector = TRUE)
+    res <- fetch_csv_file(make_url(p), retries, pause)
+    if (res$limited) any_limited <<- TRUE
+    df <- res$df
+    if (!ncol(df)) return(tibble::tibble())
 
-    # Bulk liefert i. d. R. direkt eine Liste/df; ggf. steckt's unter $data
-    cand <- if (!is.null(js$data)) js$data else js
-    df   <- .rectify_records(cand)
-
-    # Dates weich parsen
+    if (!"symbol" %in% names(df)) {
+      for (alt in c("ticker","code","symbolName")) {
+        if (alt %in% names(df)) { df$symbol <- df[[alt]]; break }
+      }
+    }
     for (dc in c("ipoDate","date","founded")) {
       if (dc %in% names(df)) {
         suppressWarnings(df[[dc]] <- tryCatch(as.Date(df[[dc]]), error = function(e) df[[dc]]))
       }
     }
-    tibble::as_tibble(df)
+    df
   }
 
   out <- dplyr::bind_rows(lapply(parts, fetch_part))
   if (nrow(out) && "symbol" %in% names(out)) out <- dplyr::arrange(out, symbol)
+
+  if (any_limited && !nrow(out)) {
+    warning("FMP rate-limit erreicht (profile-bulk). Später erneut versuchen oder Intervall vergrößern.")
+  }
   out
 }
 
 
-fmp_profiles_bulk_all <- function(max_parts = 100L) {
-  out <- list()
-  k <- 0L
-  repeat {
-    if (k >= max_parts) break
-    df <- fmp_profiles_bulk(parts = k)
-    if (!nrow(df)) break
+
+
+
+
+#' Get ALL company profiles in bulk (auto parts) – stable (robust)
+#' @param start_part Erster Part (Default 0)
+#' @param max_parts  Sicherheitslimit (Default 100)
+#' @param retries    Retries je Part (an fmp_profiles_bulk weitergereicht)
+#' @param pause      Basis-Pause für Backoff (an fmp_profiles_bulk weitergereicht)
+#' @param sleep_between Pause (Sek.) zwischen Parts (Fair Use)
+#' @param verbose    Fortschritt anzeigen?
+#' @return Tibble mit allen Profilen; Attribut 'parts_fetched' mit Integer-Vektor
+#' @export
+fmp_profiles_bulk_all <- function(start_part = 0L,
+                                  max_parts  = 100L,
+                                  retries    = 3L,
+                                  pause      = 0.6,
+                                  sleep_between = 0.4,
+                                  verbose    = TRUE) {
+  stopifnot(start_part >= 0L, max_parts >= 1L)
+  out   <- list()
+  parts <- integer(0)
+
+  for (p in seq.int(start_part, start_part + max_parts - 1L)) {
+    if (verbose) message(sprintf("[profiles-bulk] fetching part %d ...", p))
+    df <- fmp_profiles_bulk(parts = p, retries = retries, pause = pause)
+    if (!nrow(df)) {
+      if (verbose) message(sprintf("[profiles-bulk] part %d empty → stopping.", p))
+      break
+    }
     out[[length(out) + 1L]] <- df
-    k <- k + 1L
+    parts <- c(parts, p)
+    Sys.sleep(sleep_between)
   }
-  dplyr::bind_rows(out)
+
+  res <- dplyr::bind_rows(out)
+  attr(res, "parts_fetched") <- parts
+  res
+}
+
+# --- Bulk: Company Metrics (stable) -------------------------------------------
+
+
+#' Get bulk TTM metrics (stable only, CSV)
+#'
+#' Lädt die großen Bulk-CSV-Exports für **Key-Metrics-TTM** ODER **Ratios-TTM**.
+#' Intern robust: CSV erzwingen, Rate-Limit-JSON erkennen, Retries mit Backoff, Newline-Fix.
+#'
+#' @param type    Charakter: "key" (Key-Metrics-TTM) oder "ratios" (Ratios-TTM)
+#' @param retries Anzahl Retries bei Rate-Limit/Netzwerkproblemen (Default 3)
+#' @param pause   Basis-Pause in Sekunden für Backoff-Jitter (Default 0.6)
+#' @return Tibble mit allen Spalten, die FMP liefert (inkl. `symbol`). Bei TTM i.d.R. **ohne** Datums-Spalte.
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' k <- fmp_metrics_ttm_bulk("key")
+#' r <- fmp_metrics_ttm_bulk("ratios")
+#' }
+#' @export
+fmp_metrics_ttm_bulk <- function(type = c("key", "ratios"),
+                                 retries = 3L,
+                                 pause   = 0.6) {
+  key   <- .get_key()
+  type  <- match.arg(type)
+
+  path <- switch(type,
+                 key    = "key-metrics-ttm-bulk",
+                 ratios = "ratios-ttm-bulk")
+
+  make_url <- function() {
+    paste0("https://financialmodelingprep.com/stable/", path, "?",
+           .qs(list(apikey = key, datatype = "csv")))
+  }
+
+  is_limit_json <- function(raw) {
+    txt <- rawToChar(raw[seq_len(min(length(raw), 512))])
+    grepl('"Error Message"\\s*:\\s*"Limit Reach', txt, ignore.case = TRUE, perl = TRUE)
+  }
+
+  fetch_csv_file <- function(url, retries, pause) {
+    attempt <- 0L
+    repeat {
+      attempt <- attempt + 1L
+      res <- try(curl::curl_fetch_memory(url), silent = TRUE)
+      if (inherits(res, "try-error")) {
+        Sys.sleep(runif(1, 0.2, 0.6) * attempt * pause)
+        if (attempt > retries) return(tibble::tibble())
+        next
+      }
+
+      # Rate-Limit-JSON statt CSV?
+      if (is_limit_json(res$content)) {
+        if (attempt > retries) return(tibble::tibble())
+        Sys.sleep(runif(1, 0.8, 1.4) * attempt * pause)
+        next
+      }
+
+      # → CSV in Tempfile
+      tf <- tempfile(fileext = ".csv")
+      on.exit(unlink(tf), add = TRUE)
+      con <- file(tf, open = "wb"); writeBin(res$content, con); close(con)
+
+      # Newline-Fix (verhindert "unvollständige letzte Zeile")
+      if (length(res$content) > 0L) {
+        last_byte <- res$content[length(res$content)]
+        if (!last_byte %in% as.raw(c(0x0A, 0x0D))) {
+          con2 <- file(tf, open = "ab"); writeBin(as.raw(0x0A), con2); close(con2)
+        }
+      }
+
+      # Robust einlesen
+      df <- suppressWarnings(tryCatch(
+        utils::read.csv(tf, stringsAsFactors = FALSE, check.names = FALSE,
+                        blank.lines.skip = TRUE, na.strings = c("", "NA")),
+        error = function(e) {
+          tryCatch(
+            utils::read.csv(tf, stringsAsFactors = FALSE, check.names = FALSE,
+                            fill = TRUE, comment.char = "", na.strings = c("", "NA")),
+            error = function(e2) data.frame()
+          )
+        }
+      ))
+      return(tibble::as_tibble(df))
+    }
+  }
+
+  url <- make_url()
+  out <- fetch_csv_file(url, retries = retries, pause = pause)
+
+  if (!ncol(out)) return(out)
+
+  # symbol sicherstellen
+  if (!"symbol" %in% names(out)) {
+    for (alt in c("ticker","code","symbolName")) {
+      if (alt %in% names(out)) { out$symbol <- out[[alt]]; break }
+    }
+  }
+
+  # evtl. Datumsfelder (meist gibt's bei TTM keins, aber just in case)
+  for (dc in c("date","reportedDate","fillingDate","calendarYear")) {
+    if (dc %in% names(out)) {
+      suppressWarnings(out[[dc]] <- tryCatch(as.Date(out[[dc]]), error = function(e) out[[dc]]))
+    }
+  }
+
+  if ("symbol" %in% names(out)) out <- dplyr::arrange(out, symbol)
+  out
+}
+
+
+# --- Bulk: EOD Data (stable) -------------------------------------------
+
+#' Get bulk EOD prices for a given date (stable, CSV)
+#'
+#' Lädt den kompletten EOD-Dump für ein Datum (alle verfügbaren Symbole).
+#' Robust: CSV wird erzwungen, Rate-Limit-JSON erkannt, Retries mit Backoff,
+#' Newline-Fix gegen "unvollständige letzte Zeile".
+#'
+#' @param date   Zeichenkette "YYYY-MM-DD" (Pflicht)
+#' @param retries Anzahl Retries bei Limit/Netzwerkproblemen (Default 3)
+#' @param pause   Basis-Pause (Sek.) für Backoff-Jitter (Default 0.6)
+#' @return Tibble mit EOD-Feldern (symbol, date, open, high, low, close, volume, ...).
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' eod <- fmp_eod_bulk("2024-10-22")
+#' }
+#' @export
+fmp_eod_bulk <- function(date, retries = 3L, pause = 0.6) {
+  stopifnot(is.character(date), length(date) == 1L, nchar(date) >= 8L)
+  key <- .get_key()
+
+  make_url <- function() {
+    paste0(
+      "https://financialmodelingprep.com/stable/eod-bulk?",
+      .qs(list(date = date, apikey = key, datatype = "csv"))
+    )
+  }
+
+  is_limit_json <- function(raw) {
+    txt <- rawToChar(raw[seq_len(min(length(raw), 512))])
+    grepl('"Error Message"\\s*:\\s*"Limit Reach', txt, ignore.case = TRUE, perl = TRUE)
+  }
+
+  fetch_csv_file <- function(url, retries, pause) {
+    attempt <- 0L
+    repeat {
+      attempt <- attempt + 1L
+      res <- try(curl::curl_fetch_memory(url), silent = TRUE)
+      if (inherits(res, "try-error")) {
+        Sys.sleep(runif(1, 0.2, 0.6) * attempt * pause)
+        if (attempt > retries) return(tibble::tibble())
+        next
+      }
+
+      if (is_limit_json(res$content)) {
+        if (attempt > retries) return(tibble::tibble())
+        Sys.sleep(runif(1, 0.8, 1.4) * attempt * pause)
+        next
+      }
+
+      tf <- tempfile(fileext = ".csv")
+      on.exit(unlink(tf), add = TRUE)
+      con <- file(tf, open = "wb"); writeBin(res$content, con); close(con)
+
+      # Newline-Fix gegen "unvollständige letzte Zeile"
+      if (length(res$content) > 0L) {
+        last_byte <- res$content[length(res$content)]
+        if (!last_byte %in% as.raw(c(0x0A, 0x0D))) {
+          con2 <- file(tf, open = "ab"); writeBin(as.raw(0x0A), con2); close(con2)
+        }
+      }
+
+      df <- suppressWarnings(tryCatch(
+        utils::read.csv(tf, stringsAsFactors = FALSE, check.names = FALSE,
+                        blank.lines.skip = TRUE, na.strings = c("", "NA")),
+        error = function(e) {
+          tryCatch(
+            utils::read.csv(tf, stringsAsFactors = FALSE, check.names = FALSE,
+                            fill = TRUE, comment.char = "", na.strings = c("", "NA")),
+            error = function(e2) data.frame()
+          )
+        }
+      ))
+      return(tibble::as_tibble(df))
+    }
+  }
+
+  url <- make_url()
+  out <- fetch_csv_file(url, retries, pause)
+  if (!ncol(out)) return(out)
+
+  # Spalten harmonisieren (falls vorhanden)
+  # häufig: symbol, date, open, high, low, close, adjClose, volume, exchange, ...
+  num_cols <- intersect(
+    c("open","high","low","close","adjClose","volume","unadjustedVolume","change","changePercent","vwap"),
+    names(out)
+  )
+  for (nm in num_cols) suppressWarnings(out[[nm]] <- as.numeric(out[[nm]]))
+  if ("date" %in% names(out)) suppressWarnings(out$date <- tryCatch(as.Date(out$date), error=function(e) out$date))
+
+  if ("symbol" %in% names(out)) out <- dplyr::arrange(out, symbol)
+  out
 }
 

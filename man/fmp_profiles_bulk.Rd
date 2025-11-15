@@ -2,24 +2,20 @@
 % Please edit documentation in R/fmp_client.R
 \name{fmp_profiles_bulk}
 \alias{fmp_profiles_bulk}
-\title{Get company profiles in bulk (stable only)}
+\title{Get company profiles in bulk (stable only, CSV; robust gegen Rate-Limits)}
 \usage{
-fmp_profiles_bulk(parts = 0L)
+fmp_profiles_bulk(parts = 0L, retries = 3L, pause = 0.6)
 }
 \arguments{
-\item{parts}{Integer-Vektor mit den Part-IDs (z. B. 0, 1, 2, ...).}
+\item{parts}{Integer-Vektor, z.B. 0:2}
+
+\item{retries}{Anzahl Retries pro Part (Default 3)}
+
+\item{pause}{Grundpause zwischen Retries in Sekunden (Default 0.6)}
 }
 \value{
-Tibble mit Profilfeldern (z. B. symbol, companyName, industry, sector, website, ipoDate, ...)
+Tibble mit Profilfeldern (oder leer, mit Warnung bei Limit)
 }
 \description{
-Lädt Company Profiles in Batches/Teilen über den \code{part}-Parameter.
-Du kannst mehrere Parts auf einmal angeben (z. B. \code{parts = 0:2}).
-}
-\examples{
-\dontrun{
-fmp_set_key()  # liest FMP_API_KEY aus der Umgebung
-p0 <- fmp_profiles_bulk(parts = 0)
-p01 <- fmp_profiles_bulk(parts = 0:1)
-}
+Get company profiles in bulk (stable only, CSV; robust gegen Rate-Limits)
 }
