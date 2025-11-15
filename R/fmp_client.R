@@ -1213,4 +1213,67 @@ fmp_company_screener <- function(
   tibble::as_tibble(df)
 }
 
+# --- Quotes (stable) -------------------------------------------
+
+#' Get real-time stock quote(s) (stable)
+#'
+#' Wrapper for FMP's **batch-quote** (stable). Accepts one or multiple symbols.
+#'
+#' Endpoint: `/stable/batch-quote?symbols=...`
+#'
+#' @param symbols Character vector of tickers (e.g., `"AAPL"` or `c("AAPL","MSFT")`).
+#' @return A tibble with quote fields (e.g., `symbol`, `price`, `changes`, `change`, `dayHigh`, `dayLow`,
+#'   `open`, `previousClose`, `volume`, `avgVolume`, `marketCap`, `timestamp`, etc. — as provided by FMP).
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' fmp_quote("AAPL")
+#' fmp_quote(c("AAPL","MSFT","GOOGL"))
+#' }
+#' @export
+fmp_quote <- function(symbols) {
+  stopifnot(length(symbols) >= 1)
+  key <- .get_key()
+
+  # collapse symbols to comma-separated string
+  sym_str <- paste0(symbols, collapse = ",")
+
+  base <- "https://financialmodelingprep.com/stable/batch-quote"
+  url  <- paste0(base, "?", .qs(list(symbols = sym_str, apikey = key)))
+
+  js   <- jsonlite::fromJSON(url, simplifyVector = TRUE)
+  cand <- if (!is.null(js$data)) js$data else js
+  df   <- .rectify_records(cand)
+
+  # Normalise symbol column if needed
+  if (!"symbol" %in% names(df)) {
+    for (alt in c("ticker","symbolName","code")) {
+      if (alt %in% names(df)) { df$symbol <- df[[alt]]; break }
+    }
+  }
+
+  # Soft numeric casts for common fields (only if present)
+  for (nm in intersect(c(
+    "price","changes","change","dayHigh","dayLow","open","previousClose",
+    "marketCap","volume","avgVolume","pe","eps"
+  ), names(df))) {
+    suppressWarnings(df[[nm]] <- as.numeric(df[[nm]]))
+  }
+
+  # Timestamp → POSIXct if provided
+  for (tc in c("timestamp","updated","time","date","lastUpdated")) {
+    if (tc %in% names(df)) {
+      v <- df[[tc]]
+      if (is.numeric(v)) {
+        df$time <- as.POSIXct(ifelse(v > 1e12, v/1000, v), origin = "1970-01-01", tz = "UTC")
+      } else {
+        suppressWarnings(df$time <- as.POSIXct(v, tz = "UTC"))
+      }
+      break
+    }
+  }
+
+  if (nrow(df) && "symbol" %in% names(df)) df <- dplyr::arrange(df, symbol)
+  tibble::as_tibble(df)
+}
 
