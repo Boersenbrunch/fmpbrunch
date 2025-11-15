@@ -2,7 +2,7 @@
 % Please edit documentation in R/fmp_client.R
 \name{fmp_profiles_bulk}
 \alias{fmp_profiles_bulk}
-\title{Get company profiles in bulk (stable only, CSV; robust gegen Rate-Limits)}
+\title{Get company profiles in bulk (stable )}
 \usage{
 fmp_profiles_bulk(parts = 0L, retries = 3L, pause = 0.6)
 }
@@ -17,5 +17,5 @@ fmp_profiles_bulk(parts = 0L, retries = 3L, pause = 0.6)
 Tibble mit Profilfeldern (oder leer, mit Warnung bei Limit)
 }
 \description{
-Get company profiles in bulk (stable only, CSV; robust gegen Rate-Limits)
+Get company profiles in bulk (stable )
 }

@@ -103,6 +103,8 @@ set_fmp_key <- function(key = NULL) {
   fmp_set_key(key)
 }
 
+# --- PRICES (v3 & stable)----------------------
+
 
 #' Get historical prices (v3 & stable)
 #'
@@ -176,7 +178,7 @@ fmp_prices <- function(symbols, from = NULL, to = NULL, version = c("v3","stable
 
 
 
-# --- METRICS (v3 & stable) mit Auswahl: key, ratios, growth, ev --------------
+# --- METRICS (v3 & stable)  --------------
 # Nutzung:
 # fmp_metrics(c("AAPL","MSFT"), metric="key",    ttm=FALSE, period="annual", limit=20, version="v3")
 # fmp_metrics(c("AAPL","MSFT"), metric="ratios", ttm=TRUE,                 version="stable")
@@ -370,9 +372,7 @@ fmp_profile <- function(symbols, version = c("v3","stable")) {
 
 # --- FOREX QUOTES (v3 & stable) ----------------------------------------------
 
-# nutzt vorhandene Helfer: .get_key(), .qs(), .rectify_records(), .parse_fx_any()
 
-# Falls du .parse_fx_any noch nicht hast, hier eine kompakte Version:
 .parse_fx_any <- function(js) {
   cand <- NULL
   for (nm in c("data","forex","forexList","items","quotes","results")) {
@@ -739,7 +739,7 @@ fmp_stock_list <- function(version = c("v3","stable")) {
 
 
 
-#' Get company profiles in bulk (stable only, CSV; robust gegen Rate-Limits)
+#' Get company profiles in bulk (stable )
 #' @param parts   Integer-Vektor, z.B. 0:2
 #' @param retries Anzahl Retries pro Part (Default 3)
 #' @param pause   Grundpause zwischen Retries in Sekunden (Default 0.6)
@@ -835,7 +835,7 @@ fmp_profiles_bulk <- function(parts = 0L, retries = 3L, pause = 0.6) {
 
 
 
-#' Get ALL company profiles in bulk (auto parts) – stable (robust)
+#' Get ALL company profiles in bulk (auto parts)
 #' @param start_part Erster Part (Default 0)
 #' @param max_parts  Sicherheitslimit (Default 100)
 #' @param retries    Retries je Part (an fmp_profiles_bulk weitergereicht)
@@ -874,7 +874,7 @@ fmp_profiles_bulk_all <- function(start_part = 0L,
 # --- Bulk: Company Metrics (stable) -------------------------------------------
 
 
-#' Get bulk TTM metrics (stable only, CSV)
+#' Get bulk TTM metrics (stable)
 #'
 #' Lädt die großen Bulk-CSV-Exports für **Key-Metrics-TTM** ODER **Ratios-TTM**.
 #' Intern robust: CSV erzwingen, Rate-Limit-JSON erkennen, Retries mit Backoff, Newline-Fix.
@@ -983,7 +983,7 @@ fmp_metrics_ttm_bulk <- function(type = c("key", "ratios"),
 
 # --- Bulk: EOD Data (stable) -------------------------------------------
 
-#' Get bulk EOD prices for a given date (stable, CSV)
+#' Get bulk EOD prices for a given date
 #'
 #' Lädt den kompletten EOD-Dump für ein Datum (alle verfügbaren Symbole).
 #' Robust: CSV wird erzwungen, Rate-Limit-JSON erkannt, Retries mit Backoff,

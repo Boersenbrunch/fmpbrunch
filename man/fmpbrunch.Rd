@@ -6,37 +6,64 @@
 \alias{fmpbrunch-package}
 \title{fmpbrunch: Minimal FMP Client (v3 & stable)}
 \description{
-Leichter R-Client für FinancialModelingPrep. Unterstützt Kurse,
-Metrics (key/ratios/growth/ev) und Profile – alles als tidy tibbles.
+Lightweight R client for FinancialModelingPrep. Supports prices,
+metrics (key/ratios/growth/ev), profiles, and various quote/list endpoints—
+all returned as tidy tibbles.
 }
 \details{
-\strong{Funktionen:}
+\strong{Functions:}
 \itemize{
-\item \code{fmp_prices()}  – historical quotes (v3 & stable)
-\item \code{fmp_metrics()} – Metrics (key/ratios/growth/ev; TTM optional; v3 & stable)
-\item \code{fmp_profile()} – Company profiles (v3 & stable)
-\item FX: \code{fmp_fx_quotes()} - All available forex pairs
-\item Crypto: \code{fmp_crypto_quotes()} -All available crypto quotes
-\item Commodities: \code{fmp_commodity_quotes()} - All available commodity quotes
-\item Exchanges: \code{fmp_exchanges()} - All available exchanges
+\item \code{fmp_set_key()}   – Set API key (alias: \code{set_fmp_key()} – deprecated)
+\item \code{fmp_prices()}    – Historical quotes (v3 & stable)
+\item \code{fmp_metrics()}   – Metrics (key/ratios/growth/ev; optional TTM; v3 & stable)
+\item \code{fmp_profile()}   – Company profiles (v3 & stable)
+\item \strong{Bulk/CSV (stable):}
+\itemize{
+\item \code{fmp_profiles_bulk()} / \code{fmp_profiles_bulk_all()} – Company profiles by parts / all
+\item \code{fmp_metrics_ttm_bulk(type = c("key","ratios"))}  – Key-Metrics-TTM or Ratios-TTM
+\item \code{fmp_eod_bulk(date)}                               – Full EOD dump for a date
+}
+\item \strong{Quotes & Lists:}
+\itemize{
+\item FX:         \code{fmp_fx_quotes()}         – All available forex pairs
+\item Crypto:     \code{fmp_crypto_quotes()}     – All available crypto quotes
+\item Commodities:\code{fmp_commodity_quotes()}  – All available commodity quotes
+\item Exchanges:  \code{fmp_exchanges()}         – Available exchanges/venues
+\item Stocks:     \code{fmp_stock_list()}        – Full stock ticker list
+}
 }
 
 \strong{Quick Start}
 \preformatted{
 library(fmpbrunch)
-set_fmp_key("YOUR_KEY")
+fmp_set_key("YOUR_KEY")  # falls back to Sys.getenv("FMP_API_KEY")
+
+# Prices & metrics
 fmp_prices(c("AAPL","MSFT"), from = "2025-10-15", version = "stable")
 fmp_metrics("AAPL", metric = "key", ttm = TRUE, version = "stable")
 fmp_profile("AAPL", version = "stable")
+
+# Quotes & lists
 fmp_fx_quotes("v3")
 fmp_crypto_quotes("v3")
 fmp_commodity_quotes("stable")
 fmp_exchanges("stable")
+fmp_stock_list("v3")
+
+# Bulk/CSV (stable)
+fmp_profiles_bulk(0:2)                           # specific parts
+fmp_profiles_bulk_all(max_parts = 100)           # auto until empty
+fmp_metrics_ttm_bulk("key")                      # or "ratios"
+fmp_eod_bulk("2024-10-22")                       # full-day dump
 }
 }
 \seealso{
+\code{\link[=fmp_set_key]{fmp_set_key()}}, \code{\link[=set_fmp_key]{set_fmp_key()}},
 \code{\link[=fmp_prices]{fmp_prices()}}, \code{\link[=fmp_metrics]{fmp_metrics()}}, \code{\link[=fmp_profile]{fmp_profile()}},
-\code{\link[=fmp_fx_quotes]{fmp_fx_quotes()}}, \code{\link[=fmp_crypto_quotes]{fmp_crypto_quotes()}}, \code{\link[=fmp_commodity_quotes]{fmp_commodity_quotes()}}
+\code{\link[=fmp_profiles_bulk]{fmp_profiles_bulk()}}, \code{\link[=fmp_profiles_bulk_all]{fmp_profiles_bulk_all()}},
+\code{\link[=fmp_metrics_ttm_bulk]{fmp_metrics_ttm_bulk()}}, \code{\link[=fmp_eod_bulk]{fmp_eod_bulk()}},
+\code{\link[=fmp_fx_quotes]{fmp_fx_quotes()}}, \code{\link[=fmp_crypto_quotes]{fmp_crypto_quotes()}}, \code{\link[=fmp_commodity_quotes]{fmp_commodity_quotes()}},
+\code{\link[=fmp_exchanges]{fmp_exchanges()}}, \code{\link[=fmp_stock_list]{fmp_stock_list()}}
 }
 \author{
 \strong{Maintainer}: Börsenbrunch \email{boersenbrunch@gmail.com}

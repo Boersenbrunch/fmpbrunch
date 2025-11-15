@@ -57,6 +57,10 @@ fmp_profiles_bulk(0)
 
 fmp_profiles_bulk_all(max_parts = 100)
 
+fmp_eod_bulk(date = "2025-11-11")
+
+fmp_metrics_ttm_bulk(type = "key")
+
 # License
 
 MIT © Börsenbrunch

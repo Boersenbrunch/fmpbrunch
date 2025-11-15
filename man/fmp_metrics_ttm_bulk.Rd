@@ -2,7 +2,7 @@
 % Please edit documentation in R/fmp_client.R
 \name{fmp_metrics_ttm_bulk}
 \alias{fmp_metrics_ttm_bulk}
-\title{Get bulk TTM metrics (stable only, CSV)}
+\title{Get bulk TTM metrics (stable)}
 \usage{
 fmp_metrics_ttm_bulk(type = c("key", "ratios"), retries = 3L, pause = 0.6)
 }

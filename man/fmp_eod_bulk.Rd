@@ -2,7 +2,7 @@
 % Please edit documentation in R/fmp_client.R
 \name{fmp_eod_bulk}
 \alias{fmp_eod_bulk}
-\title{Get bulk EOD prices for a given date (stable, CSV)}
+\title{Get bulk EOD prices for a given date}
 \usage{
 fmp_eod_bulk(date, retries = 3L, pause = 0.6)
 }

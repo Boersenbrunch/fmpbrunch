@@ -2,7 +2,7 @@
 % Please edit documentation in R/fmp_client.R
 \name{fmp_profiles_bulk_all}
 \alias{fmp_profiles_bulk_all}
-\title{Get ALL company profiles in bulk (auto parts) – stable (robust)}
+\title{Get ALL company profiles in bulk (auto parts)}
 \usage{
 fmp_profiles_bulk_all(
   start_part = 0L,
@@ -30,5 +30,5 @@ fmp_profiles_bulk_all(
 Tibble mit allen Profilen; Attribut 'parts_fetched' mit Integer-Vektor
 }
 \description{
-Get ALL company profiles in bulk (auto parts) – stable (robust)
+Get ALL company profiles in bulk (auto parts)
 }
