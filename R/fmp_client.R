@@ -1076,3 +1076,141 @@ fmp_eod_bulk <- function(date, retries = 3L, pause = 0.6) {
   out
 }
 
+
+
+# --- Screener (stable) -------------------------------------------
+
+
+
+#' Screen companies (stable)
+#'
+#' Wrapper for FinancialModelingPrep's **company screener** (stable).
+#' Pass only the filters you need; `NULL` values are omitted.
+#' Character vectors (e.g., multiple sectors) are joined with commas.
+#'
+#' Endpoint: `/stable/company-screener`
+#'
+#' @param marketCapMoreThan,marketCapLowerThan numeric; market cap bounds.
+#' @param sector,industry character vector(s); e.g. `"Technology"` or `c("Tech","Financial")`.
+#' @param betaMoreThan,betaLowerThan numeric; beta bounds.
+#' @param priceMoreThan,priceLowerThan numeric; price bounds.
+#' @param dividendMoreThan,dividendLowerThan numeric; dividend yield bounds.
+#' @param volumeMoreThan,volumeLowerThan numeric; volume bounds.
+#' @param exchange,country character vector(s); e.g. `"NASDAQ"`, `"US"`.
+#' @param isEtf,isFund,isActivelyTrading logical; if set, converted to `"true"/"false"`.
+#' @param includeAllShareClasses logical; include all share classes.
+#' @param limit integer; max rows (e.g. 1000).
+#' @return A tibble with matching companies (fields depend on FMP; typically includes `symbol`, `price`, `marketCap`, `sector`, `industry`, …).
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' # Tech, US, mid-to-large caps, actively trading:
+#' res <- fmp_company_screener(
+#'   sector = "Technology",
+#'   country = "US",
+#'   marketCapMoreThan = 1e9,
+#'   isActivelyTrading = TRUE,
+#'   limit = 1000
+#' )
+#'
+#' # Multiple sectors + exchange filter:
+#' res2 <- fmp_company_screener(
+#'   sector   = c("Technology","Financial"),
+#'   exchange = "NASDAQ",
+#'   priceMoreThan = 10, priceLowerThan = 200
+#' )
+#' }
+#' @export
+fmp_company_screener <- function(
+    marketCapMoreThan       = NULL,
+    marketCapLowerThan      = NULL,
+    sector                  = NULL,
+    industry                = NULL,
+    betaMoreThan            = NULL,
+    betaLowerThan           = NULL,
+    priceMoreThan           = NULL,
+    priceLowerThan          = NULL,
+    dividendMoreThan        = NULL,
+    dividendLowerThan       = NULL,
+    volumeMoreThan          = NULL,
+    volumeLowerThan         = NULL,
+    exchange                = NULL,
+    country                 = NULL,
+    isEtf                   = NULL,
+    isFund                  = NULL,
+    isActivelyTrading       = NULL,
+    includeAllShareClasses  = NULL,
+    limit                   = NULL
+) {
+  key <- .get_key()
+
+  # helper: collapse vectors, normalise logicals, drop NULL/NA/empty
+  to_param <- function(x) {
+    if (is.null(x)) return(NULL)
+    if (is.logical(x)) return(tolower(as.character(x)))                # TRUE -> "true"
+    if (is.numeric(x)) return(x)
+    if (is.character(x)) {
+      x <- x[nzchar(x)]
+      if (!length(x)) return(NULL)
+      return(paste(x, collapse = ","))                                # multiple -> comma-separated
+    }
+    x
+  }
+
+  params <- list(
+    marketCapMoreThan      = to_param(marketCapMoreThan),
+    marketCapLowerThan     = to_param(marketCapLowerThan),
+    sector                 = to_param(sector),
+    industry               = to_param(industry),
+    betaMoreThan           = to_param(betaMoreThan),
+    betaLowerThan          = to_param(betaLowerThan),
+    priceMoreThan          = to_param(priceMoreThan),
+    priceLowerThan         = to_param(priceLowerThan),
+    dividendMoreThan       = to_param(dividendMoreThan),
+    dividendLowerThan      = to_param(dividendLowerThan),
+    volumeMoreThan         = to_param(volumeMoreThan),
+    volumeLowerThan        = to_param(volumeLowerThan),
+    exchange               = to_param(exchange),
+    country                = to_param(country),
+    isEtf                  = to_param(isEtf),
+    isFund                 = to_param(isFund),
+    isActivelyTrading      = to_param(isActivelyTrading),
+    includeAllShareClasses = to_param(includeAllShareClasses),
+    limit                  = to_param(limit),
+    apikey                 = key
+  )
+
+  # prune empties
+  params <- params[!vapply(params, function(v) is.null(v) || (is.character(v) && !nzchar(v)), logical(1))]
+
+  base <- "https://financialmodelingprep.com/stable/company-screener"
+  url  <- paste0(base, "?", .qs(params))
+
+  js <- jsonlite::fromJSON(url, simplifyVector = TRUE)
+
+  # data may be at top-level or under $data
+  cand <- if (!is.null(js$data)) js$data else js
+  df   <- .rectify_records(cand)
+
+  # normalise common fields (optional)
+  if (!"symbol" %in% names(df)) {
+    for (alt in c("ticker","symbolName","code")) {
+      if (alt %in% names(df)) { df$symbol <- df[[alt]]; break }
+    }
+  }
+
+  # soft cast for typical numeric fields (only if present)
+  for (nm in intersect(c(
+    "price","marketCap","beta","dividend","volume",
+    "priceMoreThan","priceLowerThan","marketCapMoreThan","marketCapLowerThan",
+    "betaMoreThan","betaLowerThan","dividendMoreThan","dividendLowerThan",
+    "volumeMoreThan","volumeLowerThan"
+  ), names(df))) {
+    suppressWarnings(df[[nm]] <- as.numeric(df[[nm]]))
+  }
+
+  if (nrow(df) && "symbol" %in% names(df)) df <- dplyr::arrange(df, symbol)
+  tibble::as_tibble(df)
+}
+
+
