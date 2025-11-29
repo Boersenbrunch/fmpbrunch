@@ -15,11 +15,15 @@ all returned as tidy tibbles.
 \itemize{
 \item \code{fmp_set_key()}   – Set API key (alias: \code{set_fmp_key()} – deprecated)
 \item \code{fmp_prices()}    – Historical quotes (v3 & stable)
+\item \code{fmp_prices_divadj()} – dividend-adjusted EOD (stable)
 \item \code{fmp_metrics()}   – Metrics (key/ratios/growth/ev; optional TTM; v3 & stable)
 \item \code{fmp_profile()}   – Company profiles (v3 & stable)
+\item \code{fmp_screener()} – company screener (stable)
+\item \code{fmp_earnings()} – earnings report (stable)
 \item \strong{Bulk/CSV (stable):}
 \itemize{
 \item \code{fmp_profiles_bulk()} / \code{fmp_profiles_bulk_all()} – Company profiles by parts / all
+\item \code{fmp_bulk_ttm()} – bulk TTM key-metrics/ratios (stable)
 \item \code{fmp_metrics_ttm_bulk(type = c("key","ratios"))}  – Key-Metrics-TTM or Ratios-TTM
 \item \code{fmp_eod_bulk(date)}                               – Full EOD dump for a date
 }
@@ -30,6 +34,8 @@ all returned as tidy tibbles.
 \item Commodities:\code{fmp_commodity_quotes()}  – All available commodity quotes
 \item Exchanges:  \code{fmp_exchanges()}         – Available exchanges/venues
 \item Stocks:     \code{fmp_stock_list()}        – Full stock ticker list
+\item Quotes:     \code{fmp_quote()}             – batch quote (stable)
+\item Indexes:    \code{fmp_index_constituents()}- constituents of Indexes
 }
 }
 
@@ -42,6 +48,7 @@ fmp_set_key("YOUR_KEY")  # falls back to Sys.getenv("FMP_API_KEY")
 fmp_prices(c("AAPL","MSFT"), from = "2025-10-15", version = "stable")
 fmp_metrics("AAPL", metric = "key", ttm = TRUE, version = "stable")
 fmp_profile("AAPL", version = "stable")
+fmp_prices_divadj(c("AAPL","MSFT"), from = "2024-10-01")
 
 # Quotes & lists
 fmp_fx_quotes("v3")
@@ -49,6 +56,7 @@ fmp_crypto_quotes("v3")
 fmp_commodity_quotes("stable")
 fmp_exchanges("stable")
 fmp_stock_list("v3")
+fmp_index_constituents("dowjones")
 
 # Bulk/CSV (stable)
 fmp_profiles_bulk(0:2)                           # specific parts

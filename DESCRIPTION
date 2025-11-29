@@ -12,5 +12,6 @@ Depends: R (>= 4.1)
 Imports:
     dplyr,
     jsonlite,
-    tibble
+    tibble,
+    curl
 RoxygenNote: 7.3.2
