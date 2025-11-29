@@ -1277,3 +1277,85 @@ fmp_quote <- function(symbols) {
   tibble::as_tibble(df)
 }
 
+
+#' Get index constituents (stable)
+#'
+#' Fetches constituents for major US indices from FMP **stable** endpoints:
+#' - `dowjones` → `/stable/dowjones-constituent`
+#' - `nasdaq`   → `/stable/nasdaq-constituent`
+#' - `sp500`    → `/stable/sp500-constituent`
+#'
+#' @param index One or several of `c("dowjones","nasdaq","sp500")`.
+#' @return A tibble with at least `symbol`, `name` (if provided by API) and `index`.
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' dj  <- fmp_index_constituents("dowjones")
+#' ndq <- fmp_index_constituents("nasdaq")
+#' sp  <- fmp_index_constituents("sp500")
+#' all <- fmp_index_constituents(c("dowjones","nasdaq","sp500"))
+#' }
+#' @export
+fmp_index_constituents <- function(index = c("dowjones","nasdaq","sp500")) {
+  key <- .get_key()
+  index <- match.arg(index, several.ok = TRUE)
+
+  path_of <- function(ix) switch(ix,
+                                 dowjones = "dowjones-constituent",
+                                 nasdaq   = "nasdaq-constituent",
+                                 sp500    = "sp500-constituent"
+  )
+
+  fetch_one <- function(ix) {
+    base <- paste0("https://financialmodelingprep.com/stable/", path_of(ix))
+    url  <- paste0(base, "?", .qs(list(apikey = key)))
+
+    # JSON-first, fallback to CSV if provider ever flips format
+    js <- tryCatch(jsonlite::fromJSON(url, simplifyVector = TRUE), error = function(e) NULL)
+
+    if (!is.null(js)) {
+      cand <- if (!is.null(js$data)) js$data else js
+      df   <- .rectify_records(cand)
+    } else {
+      # CSV fallback
+      txt <- tryCatch({
+        r <- curl::curl_fetch_memory(url)
+        s <- rawToChar(r$content); Encoding(s) <- "UTF-8"
+        if (substr(s, 1L, 3L) == "\ufeff") s <- substr(s, 4L, nchar(s))
+        s
+      }, error = function(e) "")
+      df <- if (nzchar(txt)) {
+        tibble::as_tibble(utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE))
+      } else tibble::tibble()
+    }
+
+    # Harmonise columns a bit
+    if (!"symbol" %in% names(df)) {
+      for (alt in c("ticker","code","symbolName")) {
+        if (alt %in% names(df)) { df$symbol <- df[[alt]]; break }
+      }
+    }
+    if (!"name" %in% names(df)) {
+      for (alt in c("companyName","security","longName")) {
+        if (alt %in% names(df)) { df$name <- df[[alt]]; break }
+      }
+    }
+
+    if (!nrow(df)) return(df)
+    df$index <- ix
+    dplyr::arrange(df, symbol)
+  }
+
+  out <- dplyr::bind_rows(lapply(index, fetch_one))
+  tibble::as_tibble(out)
+}
+
+
+
+
+
+
+
+
+
+
