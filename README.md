@@ -61,6 +61,10 @@ fmp_eod_bulk(date = "2025-11-11")
 
 fmp_metrics_ttm_bulk(type = "key")
 
+fmp_index_constituents("dowjones")
+
+fmp_prices_divadj(c("AAPL","MSFT"), from = "2024-10-01")
+
 # License
 
 MIT © Börsenbrunch

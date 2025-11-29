@@ -9,10 +9,14 @@
 #' **Functions:**
 #' - `fmp_set_key()`   – Set API key (alias: `set_fmp_key()` – deprecated)
 #' - `fmp_prices()`    – Historical quotes (v3 & stable)
+#' - `fmp_prices_divadj()` – dividend-adjusted EOD (stable)
 #' - `fmp_metrics()`   – Metrics (key/ratios/growth/ev; optional TTM; v3 & stable)
 #' - `fmp_profile()`   – Company profiles (v3 & stable)
+#' - `fmp_screener()` – company screener (stable)
+#' - `fmp_earnings()` – earnings report (stable)
 #' - **Bulk/CSV (stable):**
 #'   - `fmp_profiles_bulk()` / `fmp_profiles_bulk_all()` – Company profiles by parts / all
+#'   - `fmp_bulk_ttm()` – bulk TTM key-metrics/ratios (stable)
 #'   - `fmp_metrics_ttm_bulk(type = c("key","ratios"))`  – Key-Metrics-TTM or Ratios-TTM
 #'   - `fmp_eod_bulk(date)`                               – Full EOD dump for a date
 #' - **Quotes & Lists:**
@@ -21,6 +25,8 @@
 #'   - Commodities:`fmp_commodity_quotes()`  – All available commodity quotes
 #'   - Exchanges:  `fmp_exchanges()`         – Available exchanges/venues
 #'   - Stocks:     `fmp_stock_list()`        – Full stock ticker list
+#'   - Quotes:     `fmp_quote()`             – batch quote (stable)
+#'   - Indexes:    `fmp_index_constituents()`- constituents of Indexes
 #'
 #' **Quick Start**
 #' \preformatted{
@@ -31,6 +37,7 @@
 #' fmp_prices(c("AAPL","MSFT"), from = "2025-10-15", version = "stable")
 #' fmp_metrics("AAPL", metric = "key", ttm = TRUE, version = "stable")
 #' fmp_profile("AAPL", version = "stable")
+#' fmp_prices_divadj(c("AAPL","MSFT"), from = "2024-10-01")
 #'
 #' # Quotes & lists
 #' fmp_fx_quotes("v3")
@@ -38,6 +45,7 @@
 #' fmp_commodity_quotes("stable")
 #' fmp_exchanges("stable")
 #' fmp_stock_list("v3")
+#' fmp_index_constituents("dowjones")
 #'
 #' # Bulk/CSV (stable)
 #' fmp_profiles_bulk(0:2)                           # specific parts

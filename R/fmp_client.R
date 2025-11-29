@@ -5,6 +5,7 @@
 #' @importFrom jsonlite fromJSON
 #' @importFrom stats setNames
 #' @importFrom curl curl new_handle handle_setheaders
+#' @importFrom curl curl_fetch_memory
 NULL
 
 
@@ -1351,8 +1352,130 @@ fmp_index_constituents <- function(index = c("dowjones","nasdaq","sp500")) {
 }
 
 
+#' Get dividend-adjusted EOD prices (stable)
+#'
+#' Fetches **dividend-adjusted** end-of-day prices from FMP *stable* endpoint:
+#' `/stable/historical-price-eod/dividend-adjusted?symbol=...`
+#'
+#' @param symbols Character vector of tickers (one or many).
+#' @param from,to Optional ISO dates "YYYY-MM-DD" for client-side filtering.
+#' @return Tibble with at least `symbol`, `date`, `open`, `high`, `low`, `close`,
+#'   `adjustedClose`, `volume`, plus any fields the API returns.
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' fmp_prices_divadj(c("AAPL","MSFT"), from = "2024-01-01")
+#' }
+#' @export
+fmp_prices_divadj <- function(symbols, from = NULL, to = NULL) {
+  key <- .get_key()
+  stopifnot(length(symbols) >= 1)
+
+  fetch_one <- function(sym) {
+    base <- "https://financialmodelingprep.com/stable/historical-price-eod/dividend-adjusted"
+    url  <- paste0(base, "?", .qs(list(symbol = sym, apikey = key)))
+
+    # JSON first; stable liefert i.d.R. { data = [...] } oder direkt eine Liste
+    js <- tryCatch(jsonlite::fromJSON(url, simplifyVector = TRUE), error = function(e) NULL)
+
+    df <- if (!is.null(js)) {
+      cand <- if (!is.null(js$data)) js$data else js
+      .rectify_records(cand)
+    } else {
+      # Fallback CSV (falls Provider das Format mal ändert)
+      txt <- tryCatch({
+        r <- curl::curl_fetch_memory(url)
+        s <- rawToChar(r$content); Encoding(s) <- "UTF-8"
+        if (substr(s, 1L, 3L) == "\ufeff") s <- substr(s, 4L, nchar(s))
+        s
+      }, error = function(e) "")
+      if (nzchar(txt)) {
+        tibble::as_tibble(utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE))
+      } else tibble::tibble()
+    }
+
+    if (!nrow(df)) return(df)
+    if (!"symbol" %in% names(df)) df$symbol <- sym
+    if ("date" %in% names(df)) suppressWarnings(df$date <- as.Date(df$date))
+
+    if (!is.null(from)) df <- df[df$date >= as.Date(from), , drop = FALSE]
+    if (!is.null(to))   df <- df[df$date <= as.Date(to),   , drop = FALSE]
+
+    df
+  }
+
+  out <- dplyr::bind_rows(lapply(symbols, fetch_one))
+  if (nrow(out)) out <- dplyr::arrange(out, symbol, date)
+  tibble::as_tibble(out)
+}
 
 
+#' Get earnings report (stable)
+#'
+#' Fetches earnings reports from FMP **stable** endpoint:
+#' `/stable/earnings?symbol=...`
+#'
+#' The API usually returns fields like: `date`, `eps`, `epsEstimated`,
+#' `revenue`, `revenueEstimated`, `period` (varies by symbol).
+#'
+#' @param symbols Character vector of tickers (one or many).
+#' @return A tibble with earnings data; includes `symbol`.
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' fmp_earnings(c("AAPL","MSFT"))
+#' }
+#' @export
+fmp_earnings <- function(symbols) {
+  key <- .get_key()
+  stopifnot(length(symbols) >= 1)
+
+  fetch_one <- function(sym) {
+    base <- "https://financialmodelingprep.com/stable/earnings"
+    url  <- paste0(base, "?", .qs(list(symbol = sym, apikey = key)))
+
+    # JSON first
+    js <- tryCatch(jsonlite::fromJSON(url, simplifyVector = TRUE), error = function(e) NULL)
+    df <- if (!is.null(js)) {
+      cand <- if (!is.null(js$data)) js$data else js
+      .rectify_records(cand)
+    } else {
+      # CSV fallback (für den Fall, dass FMP Format ändert)
+      txt <- tryCatch({
+        r <- curl::curl_fetch_memory(url)
+        s <- rawToChar(r$content); Encoding(s) <- "UTF-8"
+        if (substr(s, 1L, 3L) == "\ufeff") s <- substr(s, 4L, nchar(s))
+        s
+      }, error = function(e) "")
+      if (nzchar(txt)) {
+        tibble::as_tibble(
+          utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE)
+        )
+      } else tibble::tibble()
+    }
+
+    if (!nrow(df)) return(df)
+    if (!"symbol" %in% names(df)) df$symbol <- sym
+
+    # soften date casting on common fields
+    for (dc in c("date","fiscalDateEnding","reportedDate")) {
+      if (dc %in% names(df)) {
+        suppressWarnings(df[[dc]] <- tryCatch(as.Date(df[[dc]]), error = function(e) df[[dc]]))
+      }
+    }
+
+    # numeric columns (if present)
+    for (nm in intersect(c("eps","epsEstimated","revenue","revenueEstimated"), names(df))) {
+      suppressWarnings(df[[nm]] <- as.numeric(df[[nm]]))
+    }
+
+    dplyr::arrange(df, dplyr::desc(.data[[ if ("date" %in% names(df)) "date" else names(df)[1] ]]))
+  }
+
+  out <- dplyr::bind_rows(lapply(symbols, fetch_one))
+  if (nrow(out) && "symbol" %in% names(out)) out <- dplyr::arrange(out, symbol)
+  tibble::as_tibble(out)
+}
 
 
 
