@@ -139,17 +139,21 @@ fmp_prices <- function(symbols, from = NULL, to = NULL, version = c("v3","stable
   }
 
   # ---- stable: 1 Request PRO Symbol (Kommaliste liefert nix) ----------------
+
   fetch_stable <- function(sym) {
     base <- "https://financialmodelingprep.com/stable/historical-price-eod/full"
-    p <- list(symbol = sym, apikey = key)  # NUR symbol & apikey
+    p <- list(symbol = sym, apikey = key)
+
+    # NEU: serverseitiges Filtern aktivieren
+    if (!is.null(from)) p$from <- from
+    if (!is.null(to))   p$to   <- to
+
     url <- paste0(base, "?", .qs(p))
     js  <- jsonlite::fromJSON(url, simplifyVector = TRUE)
 
-    # Formen: js$data (data.frame) ODER js$data (list) -> nimm, was da ist
     if (!is.null(js$data) && inherits(js$data, "data.frame")) {
       df <- tibble::as_tibble(js$data)
     } else if (!is.null(js$data) && is.list(js$data)) {
-      # falls doch Liste, flachziehen
       parts <- lapply(js$data, function(x) if (inherits(x, "data.frame")) tibble::as_tibble(x) else tibble::tibble())
       df <- dplyr::bind_rows(parts)
     } else if (inherits(js, "data.frame")) {
@@ -158,15 +162,16 @@ fmp_prices <- function(symbols, from = NULL, to = NULL, version = c("v3","stable
       df <- tibble::tibble()
     }
 
-    if (NROW(df) == 0) return(df)
+    if (!nrow(df)) return(df)
     if (!"symbol" %in% names(df)) df$symbol <- sym
     if ("date" %in% names(df)) suppressWarnings(df$date <- as.Date(df$date))
 
-    # Datumsfilter CLIENT-seitig
+    # Optionaler Fallback-Filter (falls Server params ignoriert)
     if (!is.null(from)) df <- df[df$date >= as.Date(from), , drop = FALSE]
     if (!is.null(to))   df <- df[df$date <= as.Date(to),   , drop = FALSE]
     df
   }
+
 
   out <- dplyr::bind_rows(lapply(symbols, fetch_stable))
   if (NROW(out)) out <- dplyr::arrange(out, symbol, date)
