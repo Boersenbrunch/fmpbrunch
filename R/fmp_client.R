@@ -1483,6 +1483,79 @@ fmp_earnings <- function(symbols) {
 }
 
 
+#' Get dividends (stable)
+#'
+#' Fetches dividend history from FMP **stable** endpoint:
+#' `/stable/dividends?symbol=...`
+#'
+#' The API typically returns fields like: `date`, `dividend` (or
+#' `adjDividend`), `declarationDate`, `recordDate`, `paymentDate`
+#' (field names can vary by symbol).
+#'
+#' @param symbols Character vector of tickers (one or many).
+#' @return A tibble with dividend data; includes `symbol`.
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' fmp_dividends(c("AAPL","MSFT"))
+#' }
+#' @export
+fmp_dividends <- function(symbols) {
+  key <- .get_key()
+  stopifnot(length(symbols) >= 1)
+
+  fetch_one <- function(sym) {
+    base <- "https://financialmodelingprep.com/stable/dividends"
+    url  <- paste0(base, "?", .qs(list(symbol = sym, apikey = key)))
+
+    # JSON first
+    js <- tryCatch(jsonlite::fromJSON(url, simplifyVector = TRUE), error = function(e) NULL)
+    df <- if (!is.null(js)) {
+      cand <- if (!is.null(js$data)) js$data else js
+      .rectify_records(cand)
+    } else {
+      # CSV fallback (für den Fall, dass FMP Format ändert)
+      txt <- tryCatch({
+        r <- curl::curl_fetch_memory(url)
+        s <- rawToChar(r$content); Encoding(s) <- "UTF-8"
+        if (substr(s, 1L, 3L) == "\ufeff") s <- substr(s, 4L, nchar(s))  # BOM-stripping
+        s
+      }, error = function(e) "")
+      if (nzchar(txt)) {
+        tibble::as_tibble(
+          utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE)
+        )
+      } else tibble::tibble()
+    }
+
+    if (!nrow(df)) return(df)
+    if (!"symbol" %in% names(df)) df$symbol <- sym
+
+    # soften date casting on common fields
+    for (dc in c("date","exDividendDate","declarationDate","declaredDate","recordDate","paymentDate","payDate")) {
+      if (dc %in% names(df)) {
+        suppressWarnings(df[[dc]] <- tryCatch(as.Date(df[[dc]]), error = function(e) df[[dc]]))
+      }
+    }
+
+    # numeric columns (if present)
+    for (nm in intersect(c("dividend","adjDividend","dividendAmount","amount"), names(df))) {
+      suppressWarnings(df[[nm]] <- as.numeric(df[[nm]]))
+    }
+
+    if ("date" %in% names(df)) dplyr::arrange(df, dplyr::desc(.data$date)) else df
+  }
+
+  out <- dplyr::bind_rows(lapply(symbols, fetch_one))
+  if (nrow(out) && "symbol" %in% names(out)) out <- dplyr::arrange(out, symbol)
+  tibble::as_tibble(out)
+}
+
+
+
+
+
+
 
 
 

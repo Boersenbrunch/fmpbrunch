@@ -3,6 +3,7 @@
 export(fmp_commodity_quotes)
 export(fmp_company_screener)
 export(fmp_crypto_quotes)
+export(fmp_dividends)
 export(fmp_earnings)
 export(fmp_eod_bulk)
 export(fmp_exchanges)
