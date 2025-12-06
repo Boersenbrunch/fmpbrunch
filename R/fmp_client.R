@@ -1552,6 +1552,291 @@ fmp_dividends <- function(symbols) {
 }
 
 
+#' Bulk Income Statement (stable) — standard or growth
+#'
+#' Downloads income statements in bulk (CSV) from FMP **stable** endpoints:
+#' - standard: `/stable/income-statement-bulk?year=YYYY&period=Qx`
+#' - growth:   `/stable/income-statement-growth-bulk?year=YYYY&period=Qx`
+#'
+#' @param year   Integer, e.g. 2025.
+#' @param period Character, one of "Q1","Q2","Q3","Q4","FY" (case-insensitive;
+#'               also accepts "annual"/"y" which are mapped to "FY").
+#' @param variant Character, "standard" or "growth".
+#' @return A tibble with the parsed CSV; includes `symbol` if provided by API.
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' x <- fmp_income_statement_bulk(2025, "Q1", variant = "standard")
+#' y <- fmp_income_statement_bulk(2025, "Q1", variant = "growth")
+#' }
+#' @export
+fmp_income_statement_bulk <- function(year, period, variant = c("standard","growth")) {
+  key     <- .get_key()
+  variant <- match.arg(variant, c("standard","growth"))
+  variant <- tolower(variant)
+
+  stopifnot(is.numeric(year), length(year) == 1)
+  # normalise period
+  per <- toupper(as.character(period))
+  if (per %in% c("ANNUAL","Y")) per <- "FY"
+  ok <- c("Q1","Q2","Q3","Q4","FY")
+  if (!per %in% ok) stop("period must be one of: ", paste(ok, collapse=", "), call. = FALSE)
+
+  path <- if (variant == "standard") {
+    "income-statement-bulk"
+  } else {
+    "income-statement-growth-bulk"
+  }
+
+  url <- paste0(
+    "https://financialmodelingprep.com/stable/", path, "?",
+    .qs(list(year = as.integer(year), period = per, apikey = key))
+  )
+
+  # --- fetch CSV as text (robust) ---
+  txt <- tryCatch({
+    res <- curl::curl_fetch_memory(url)
+    s   <- rawToChar(res$content); Encoding(s) <- "UTF-8"
+    if (substr(s, 1L, 3L) == "\ufeff") s <- substr(s, 4L, nchar(s))  # strip BOM
+    s
+  }, error = function(e) "")
+
+  # If API returns an error page or empty content, yield empty tibble
+  if (!is.character(txt) || length(txt) == 0L || !nzchar(txt)) return(tibble::tibble())
+  first <- strsplit(txt, "\n", fixed = TRUE)[[1L]]
+  first <- if (length(first)) trimws(first[1L]) else ""
+  if (startsWith(first, "{") && grepl("\"Error", first, fixed = TRUE)) return(tibble::tibble())
+  if (startsWith(first, "<")) return(tibble::tibble())  # HTML / error
+
+  # --- parse CSV into tibble ---
+  df <- tryCatch(
+    utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE, blank.lines.skip = TRUE),
+    error = function(e) {
+      tryCatch(
+        utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE, fill = TRUE, comment.char = ""),
+        error = function(e2) data.frame()
+      )
+    }
+  )
+  df <- tibble::as_tibble(df)
+
+  if (!nrow(df)) return(df)
+
+  # ensure symbol if present under other names
+  if (!"symbol" %in% names(df)) {
+    for (alt in c("ticker","code","symbolName")) {
+      if (alt %in% names(df)) { df$symbol <- df[[alt]]; break }
+    }
+  }
+
+  # soft-date casting for common fields (if present)
+  for (dc in c("date","reportDate","filingDate","fillingDate","acceptedDate")) {
+    if (dc %in% names(df)) {
+      suppressWarnings(df[[dc]] <- tryCatch(as.Date(df[[dc]]), error = function(e) df[[dc]]))
+    }
+  }
+  # year & period normalization (if columns exist)
+  if ("calendarYear" %in% names(df)) suppressWarnings(df$calendarYear <- as.integer(df$calendarYear))
+  if ("period" %in% names(df)) df$period <- toupper(df$period)
+
+  # nice ordering
+  if ("symbol" %in% names(df)) {
+    if ("date" %in% names(df)) {
+      df <- dplyr::arrange(df, symbol, dplyr::desc(.data$date))
+    } else if ("calendarYear" %in% names(df)) {
+      df <- dplyr::arrange(df, symbol, dplyr::desc(.data$calendarYear), .by_group = FALSE)
+    } else {
+      df <- dplyr::arrange(df, symbol)
+    }
+  }
+
+  df
+}
+
+
+#' Get balance sheet statement (bulk, stable)
+#'
+#' Downloads bulk **balance sheet** data from FMP *stable* endpoints.
+#' Choose between the standard and growth variants:
+#' - standard: `/stable/balance-sheet-statement-bulk?year=YYYY&period=Qx`
+#' - growth:   `/stable/balance-sheet-statement-growth-bulk?year=YYYY&period=Qx`
+#'
+#' @param year   Scalar numeric year (e.g., `2025`).
+#' @param period One of `"Q1","Q2","Q3","Q4","FY"` (case-insensitive; `"annual"`/`"Y"` mapped to `"FY"`).
+#' @param variant `"standard"` or `"growth"` (default: both allowed; matched via [match.arg]).
+#' @return A tibble with bulk balance sheet data for the requested year/period.
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' bs_std <- fmp_balance_sheet_bulk(2025, "Q1", "standard")
+#' bs_gro <- fmp_balance_sheet_bulk(2025, "Q1", "growth")
+#' }
+#' @export
+fmp_balance_sheet_bulk <- function(year, period, variant = c("standard","growth")) {
+  key <- .get_key()
+  variant <- match.arg(variant, c("standard","growth"))
+  variant <- tolower(variant)
+
+  stopifnot(is.numeric(year), length(year) == 1)
+  per <- toupper(as.character(period))
+  if (per %in% c("ANNUAL","Y")) per <- "FY"
+  ok <- c("Q1","Q2","Q3","Q4","FY")
+  if (!per %in% ok) stop("period must be one of: ", paste(ok, collapse = ", "), call. = FALSE)
+
+  path <- if (variant == "standard") {
+    "balance-sheet-statement-bulk"
+  } else {
+    "balance-sheet-statement-growth-bulk"
+  }
+
+  url <- paste0(
+    "https://financialmodelingprep.com/stable/", path, "?",
+    .qs(list(year = as.integer(year), period = per, apikey = key))
+  )
+
+  # Fetch CSV text (tolerant, wie bei den anderen Bulk-Funktionen)
+  txt <- tryCatch({
+    res <- curl::curl_fetch_memory(url)
+    s <- rawToChar(res$content); Encoding(s) <- "UTF-8"
+    if (substr(s, 1L, 3L) == "\ufeff") s <- substr(s, 4L, nchar(s))  # remove BOM
+    s
+  }, error = function(e) "")
+
+  # HTTP-Fehler-/HTML-Guard
+  if (!is.character(txt) || !nzchar(txt)) return(tibble::tibble())
+  first <- strsplit(txt, "\n", fixed = TRUE)[[1L]]
+  first <- if (length(first)) trimws(first[1L]) else ""
+  if (startsWith(first, "<") || grepl("Too many|Rate limit|Unauthorized|Error", txt, ignore.case = TRUE)) {
+    return(tibble::tibble())
+  }
+
+  # CSV -> tibble (zweiter Versuch mit fill/comment.char falls nötig)
+  df <- tryCatch(
+    utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE, blank.lines.skip = TRUE),
+    error = function(e) {
+      tryCatch(
+        utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE, fill = TRUE, comment.char = ""),
+        error = function(e2) data.frame()
+      )
+    }
+  )
+  df <- tibble::as_tibble(df)
+
+  # sanfte Date-Konvertierung gängiger Felder, falls vorhanden
+  for (dc in c("date","reportedDate","fillingDate")) {
+    if (dc %in% names(df)) {
+      suppressWarnings(df[[dc]] <- tryCatch(as.Date(df[[dc]]), error = function(e) df[[dc]]))
+    }
+  }
+
+  # Symbol ergänzen (falls Spalte fehlt und eine Alternative vorhanden ist)
+  if (nrow(df) && !"symbol" %in% names(df)) {
+    for (alt in c("ticker","code","symbolName")) {
+      if (alt %in% names(df)) { df$symbol <- df[[alt]]; break }
+    }
+  }
+
+  if (nrow(df) && "symbol" %in% names(df)) {
+    if ("date" %in% names(df)) df <- dplyr::arrange(df, symbol, dplyr::desc(.data$date))
+    else df <- dplyr::arrange(df, symbol)
+  }
+
+  df
+}
+
+#' Get cash flow statement (bulk, stable)
+#'
+#' Downloads bulk **cash flow statement** data from FMP *stable* endpoints.
+#' Choose between the standard and growth variants:
+#' - standard: `/stable/cash-flow-statement-bulk?year=YYYY&period=Qx`
+#' - growth:   `/stable/cash-flow-statement-growth-bulk?year=YYYY&period=Qx`
+#'
+#' @param year   Scalar numeric year (e.g., `2025`).
+#' @param period One of `"Q1","Q2","Q3","Q4","FY"` (case-insensitive; `"annual"`/`"Y"` mapped to `"FY"`).
+#' @param variant `"standard"` or `"growth"`. Default: `"standard"`.
+#' @return A tibble with bulk cash flow data for the requested year/period.
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#' cf_std <- fmp_cash_flow_bulk(2025, "Q1", "standard")
+#' cf_gro <- fmp_cash_flow_bulk(2025, "Q1", "growth")
+#' }
+#' @export
+fmp_cash_flow_bulk <- function(year, period, variant = c("standard","growth")) {
+  key <- .get_key()
+  variant <- match.arg(variant, c("standard","growth"))
+  variant <- tolower(variant)
+
+  stopifnot(is.numeric(year), length(year) == 1)
+  per <- toupper(as.character(period))
+  if (per %in% c("ANNUAL","Y")) per <- "FY"
+  ok <- c("Q1","Q2","Q3","Q4","FY")
+  if (!per %in% ok) stop("period must be one of: ", paste(ok, collapse = ", "), call. = FALSE)
+
+  path <- if (variant == "standard") {
+    "cash-flow-statement-bulk"
+  } else {
+    "cash-flow-statement-growth-bulk"
+  }
+
+  url <- paste0(
+    "https://financialmodelingprep.com/stable/", path, "?",
+    .qs(list(year = as.integer(year), period = per, apikey = key))
+  )
+
+  # Fetch CSV text (tolerant)
+  txt <- tryCatch({
+    res <- curl::curl_fetch_memory(url)
+    s <- rawToChar(res$content); Encoding(s) <- "UTF-8"
+    if (substr(s, 1L, 3L) == "\ufeff") s <- substr(s, 4L, nchar(s))  # remove BOM
+    s
+  }, error = function(e) "")
+
+  # Guard gegen HTML/Fehlerseiten
+  if (!is.character(txt) || !nzchar(txt)) return(tibble::tibble())
+  first <- strsplit(txt, "\n", fixed = TRUE)[[1L]]
+  first <- if (length(first)) trimws(first[1L]) else ""
+  if (startsWith(first, "<") || grepl("Too many|Rate limit|Unauthorized|Error", txt, ignore.case = TRUE)) {
+    return(tibble::tibble())
+  }
+
+  # CSV -> tibble (mit Fallback)
+  df <- tryCatch(
+    utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE, blank.lines.skip = TRUE),
+    error = function(e) {
+      tryCatch(
+        utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE, fill = TRUE, comment.char = ""),
+        error = function(e2) data.frame()
+      )
+    }
+  )
+  df <- tibble::as_tibble(df)
+
+  # weiche Date-Konvertierung
+  for (dc in c("date","reportedDate","fillingDate")) {
+    if (dc %in% names(df)) {
+      suppressWarnings(df[[dc]] <- tryCatch(as.Date(df[[dc]]), error = function(e) df[[dc]]))
+    }
+  }
+
+  # Symbol ergänzen, falls nötig
+  if (nrow(df) && !"symbol" %in% names(df)) {
+    for (alt in c("ticker","code","symbolName")) {
+      if (alt %in% names(df)) { df$symbol <- df[[alt]]; break }
+    }
+  }
+
+  if (nrow(df) && "symbol" %in% names(df)) {
+    if ("date" %in% names(df)) df <- dplyr::arrange(df, symbol, dplyr::desc(.data$date))
+    else df <- dplyr::arrange(df, symbol)
+  }
+
+  df
+}
+
+
+
+
 
 
 
