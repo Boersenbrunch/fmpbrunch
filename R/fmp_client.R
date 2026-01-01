@@ -1378,31 +1378,32 @@ fmp_prices_divadj <- function(symbols, from = NULL, to = NULL) {
 
   fetch_one <- function(sym) {
     base <- "https://financialmodelingprep.com/stable/historical-price-eod/dividend-adjusted"
-    url  <- paste0(base, "?", .qs(list(symbol = sym, apikey = key)))
+    p <- list(symbol = sym, apikey = key)
+    if (!is.null(from)) p$from <- from
+    if (!is.null(to))   p$to   <- to
+    url <- paste0(base, "?", .qs(p))
 
-    # JSON first; stable liefert i.d.R. { data = [...] } oder direkt eine Liste
     js <- tryCatch(jsonlite::fromJSON(url, simplifyVector = TRUE), error = function(e) NULL)
 
     df <- if (!is.null(js)) {
       cand <- if (!is.null(js$data)) js$data else js
       .rectify_records(cand)
     } else {
-      # Fallback CSV (falls Provider das Format mal ändert)
       txt <- tryCatch({
         r <- curl::curl_fetch_memory(url)
         s <- rawToChar(r$content); Encoding(s) <- "UTF-8"
         if (substr(s, 1L, 3L) == "\ufeff") s <- substr(s, 4L, nchar(s))
         s
       }, error = function(e) "")
-      if (nzchar(txt)) {
-        tibble::as_tibble(utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE))
-      } else tibble::tibble()
+      if (nzchar(txt)) tibble::as_tibble(utils::read.csv(text = txt, stringsAsFactors = FALSE, check.names = FALSE))
+      else tibble::tibble()
     }
 
     if (!nrow(df)) return(df)
     if (!"symbol" %in% names(df)) df$symbol <- sym
     if ("date" %in% names(df)) suppressWarnings(df$date <- as.Date(df$date))
 
+    # Fallback-Filter, falls der Server 'from/to' ignoriert
     if (!is.null(from)) df <- df[df$date >= as.Date(from), , drop = FALSE]
     if (!is.null(to))   df <- df[df$date <= as.Date(to),   , drop = FALSE]
 
@@ -1413,7 +1414,6 @@ fmp_prices_divadj <- function(symbols, from = NULL, to = NULL) {
   if (nrow(out)) out <- dplyr::arrange(out, symbol, date)
   tibble::as_tibble(out)
 }
-
 
 #' Get earnings report (stable)
 #'
