@@ -1,6 +1,6 @@
 Package: fmpbrunch
 Title: Lightweight Client for FinancialModelingPrep (v3 & stable)
-Version: 0.4.5
+Version: 0.4.6
 Authors@R: c(
     person("Börsenbrunch", family = "", email = "boersenbrunch@gmail.com", role = c("aut","cre")))
 Description: Minimal R client for FinancialModelingPrep: prices, metrics (key/ratios/growth/EV),
