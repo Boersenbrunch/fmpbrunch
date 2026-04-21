@@ -1834,6 +1834,239 @@ fmp_cash_flow_bulk <- function(year, period, variant = c("standard","growth")) {
   df
 }
 
+# --- NEWS (stable) ------------------------------------------------------------
+
+.parse_news_any <- function(js, endpoint = NULL) {
+  cand <- if (!is.null(js$data)) js$data else js
+  df   <- .rectify_records(cand)
+
+  if (!nrow(df)) return(tibble::tibble())
+
+  # Endpoint-spezifische Harmonisierung
+  if (identical(endpoint, "fmp_articles")) {
+    df <- dplyr::mutate(
+      df,
+      endpoint      = endpoint,
+      news_type     = "article",
+      published_at  = if ("date" %in% names(df)) as.character(.data$date) else NA_character_,
+      symbol_std    = NA_character_,
+      ticker_std    = if ("tickers" %in% names(df)) as.character(.data$tickers) else NA_character_,
+      publisher_std = if ("site" %in% names(df)) as.character(.data$site) else NA_character_,
+      url_std       = if ("link" %in% names(df)) as.character(.data$link) else NA_character_,
+      text_std      = if ("content" %in% names(df)) as.character(.data$content) else NA_character_
+    )
+  } else {
+    df <- dplyr::mutate(
+      df,
+      endpoint      = endpoint,
+      news_type     = "news",
+      published_at  = if ("publishedDate" %in% names(df)) as.character(.data$publishedDate) else NA_character_,
+      symbol_std    = if ("symbol" %in% names(df)) as.character(.data$symbol) else NA_character_,
+      ticker_std    = if ("symbol" %in% names(df)) as.character(.data$symbol) else NA_character_,
+      publisher_std = if ("publisher" %in% names(df)) as.character(.data$publisher) else NA_character_,
+      url_std       = if ("url" %in% names(df)) as.character(.data$url) else NA_character_,
+      text_std      = if ("text" %in% names(df)) as.character(.data$text) else NA_character_
+    )
+  }
+  if ("symbol" %in% names(df)) df$symbol <- as.character(df$symbol)
+  tibble::as_tibble(df)
+}
+
+
+#' Get news/articles from FMP stable endpoints
+#'
+#' Wrapper für mehrere FMP-News-Endpunkte.
+#' Unterstützt:
+#' - `fmp_articles`          -> `/stable/fmp-articles`
+#' - `general`               -> `/stable/news/general-latest`
+#' - `press_releases`        -> `/stable/news/press-releases-latest`
+#' - `stock`                 -> `/stable/news/stock-latest`
+#' - `crypto`                -> `/stable/news/crypto-latest`
+#' - `forex`                 -> `/stable/news/forex-latest`
+#'
+#' Für alle News-Endpunkte außer `fmp_articles` können optional `from` und `to`
+#' mitgegeben werden.
+#'
+#' @param endpoint Character, einer von
+#'   `"fmp_articles","general","press_releases","stock","crypto","forex"`.
+#' @param page Integer, einzelne Seite (Default 0). Wird ignoriert, wenn `pages`
+#'   gesetzt ist.
+#' @param limit Integer zwischen 1 und 250.
+#' @param from,to Optionale Datumsangaben `"YYYY-MM-DD"`; nur für News-Endpunkte
+#'   außer `fmp_articles`.
+#' @param pages Optionaler Integer-Vektor, z. B. `0:5`, um mehrere Seiten in
+#'   einem Call zu laden.
+#' @param simplify Logical; wenn `TRUE`, wird `published_at` nach POSIXct geparst.
+#' @return Tibble mit Rohfeldern des jeweiligen Endpunkts plus harmonisierten
+#'   Standardspalten:
+#'   `endpoint`, `news_type`, `published_at`, `symbol_std`, `ticker_std`,
+#'   `publisher_std`, `url_std`, `text_std`, `requested_page`.
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#'
+#' # General news, Seite 0
+#' x <- fmp_news("general", page = 0, limit = 50)
+#'
+#' # Stock news, mehrere Seiten
+#' y <- fmp_news("stock", pages = 0:2, limit = 100, from = "2026-04-01", to = "2026-04-20")
+#'
+#' # FMP articles
+#' z <- fmp_news("fmp_articles", pages = 0:3, limit = 50)
+#' }
+#' @export
+fmp_news <- function(
+    endpoint = c("fmp_articles", "general", "press_releases", "stock", "crypto", "forex"),
+    page = 0,
+    limit = 20,
+    from = NULL,
+    to = NULL,
+    pages = NULL,
+    simplify = TRUE
+) {
+  key <- .get_key()
+  endpoint <- match.arg(endpoint)
+
+  if (!is.numeric(limit) || length(limit) != 1L || limit < 1 || limit > 250) {
+    stop("limit muss zwischen 1 und 250 liegen.", call. = FALSE)
+  }
+
+  endpoint_map <- c(
+    fmp_articles   = "stable/fmp-articles",
+    general        = "stable/news/general-latest",
+    press_releases = "stable/news/press-releases-latest",
+    stock          = "stable/news/stock-latest",
+    crypto         = "stable/news/crypto-latest",
+    forex          = "stable/news/forex-latest"
+  )
+
+  if (is.null(pages)) pages <- page
+  pages <- unique(as.integer(pages))
+  pages <- pages[!is.na(pages) & pages >= 0L]
+
+  if (!length(pages)) return(tibble::tibble())
+
+  # laut Doku page max 100 für die News-Endpunkte (nicht fmp_articles)
+  if (endpoint != "fmp_articles" && any(pages > 100L)) {
+    warning("Für diesen Endpoint ist page laut Doku max. 100. Höhere Werte wurden verworfen.")
+    pages <- pages[pages <= 100L]
+  }
+
+  if (!length(pages)) return(tibble::tibble())
+
+  fetch_one_page <- function(p) {
+    params <- list(
+      page   = as.integer(p),
+      limit  = as.integer(limit),
+      apikey = key
+    )
+
+    if (endpoint != "fmp_articles") {
+      if (!is.null(from)) params$from <- as.character(from)
+      if (!is.null(to))   params$to   <- as.character(to)
+    }
+
+    url <- paste0(
+      "https://financialmodelingprep.com/",
+      endpoint_map[[endpoint]],
+      "?",
+      .qs(params)
+    )
+
+    js <- tryCatch(
+      jsonlite::fromJSON(url, simplifyVector = TRUE),
+      error = function(e) NULL
+    )
+
+    if (is.null(js)) return(tibble::tibble())
+
+    df <- .parse_news_any(js, endpoint = endpoint)
+    if (!nrow(df)) return(df)
+
+    df$requested_page <- as.integer(p)
+    tibble::as_tibble(df)
+  }
+
+  out <- dplyr::bind_rows(lapply(pages, fetch_one_page))
+  if (!nrow(out)) return(out)
+
+  if (isTRUE(simplify) && "published_at" %in% names(out)) {
+    suppressWarnings({
+      out$published_at <- as.POSIXct(out$published_at, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
+    })
+  }
+
+  # sinnvolle Sortierung
+  if ("published_at" %in% names(out)) {
+    ord <- tryCatch(order(out$published_at, decreasing = TRUE, na.last = TRUE), error = function(e) NULL)
+    if (!is.null(ord)) out <- out[ord, , drop = FALSE]
+  }
+
+  tibble::as_tibble(out)
+}
+
+
+#' Get news from multiple FMP endpoints in one call
+#'
+#' Bulk-Wrapper um mehrere News-Endpunkte nacheinander abzurufen und in einem
+#' Tibble zusammenzuführen.
+#'
+#' @param endpoints Character-Vektor aus
+#'   `c("fmp_articles","general","press_releases","stock","crypto","forex")`
+#' @param pages Integer-Vektor der abzurufenden Seiten, z. B. `0:2`
+#' @param limit Integer zwischen 1 und 250
+#' @param from,to Optionale Datumsangaben `"YYYY-MM-DD"`; werden nur auf die
+#'   News-Endpunkte außer `fmp_articles` angewendet.
+#' @param simplify Logical; wenn `TRUE`, wird `published_at` nach POSIXct geparst.
+#' @return Tibble mit allen News aus den angegebenen Endpunkten.
+#' @examples
+#' \dontrun{
+#' fmp_set_key("YOUR_KEY")
+#'
+#' all_news <- fmp_news_bulk(
+#'   endpoints = c("general","stock","press_releases"),
+#'   pages = 0:2,
+#'   limit = 50,
+#'   from = "2026-04-01",
+#'   to   = "2026-04-20"
+#' )
+#' }
+#' @export
+fmp_news_bulk <- function(
+    endpoints = c("fmp_articles", "general", "press_releases", "stock", "crypto", "forex"),
+    pages = 0,
+    limit = 20,
+    from = NULL,
+    to = NULL,
+    simplify = TRUE
+) {
+  endpoints <- unique(as.character(endpoints))
+  valid <- c("fmp_articles", "general", "press_releases", "stock", "crypto", "forex")
+  endpoints <- endpoints[endpoints %in% valid]
+
+  if (!length(endpoints)) return(tibble::tibble())
+
+  out <- dplyr::bind_rows(lapply(endpoints, function(ep) {
+    fmp_news(
+      endpoint = ep,
+      pages = pages,
+      limit = limit,
+      from = from,
+      to = to,
+      simplify = simplify
+    )
+  }))
+
+  if (!nrow(out)) return(out)
+
+  if ("published_at" %in% names(out)) {
+    ord <- tryCatch(order(out$published_at, decreasing = TRUE, na.last = TRUE), error = function(e) NULL)
+    if (!is.null(ord)) out <- out[ord, , drop = FALSE]
+  }
+
+  tibble::as_tibble(out)
+}
+
 
 
 

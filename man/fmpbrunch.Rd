@@ -7,42 +7,62 @@
 \title{fmpbrunch: Minimal FMP Client (v3 & stable)}
 \description{
 Lightweight R client for FinancialModelingPrep. Supports prices,
-metrics (key/ratios/growth/ev), profiles, and various quote/list endpoints—
-all returned as tidy tibbles.
+metrics, profiles, news, quotes, screeners, bulk CSV endpoints,
+and various list endpoints — all returned as tidy tibbles.
 }
 \details{
 \strong{Functions:}
 \itemize{
-\item \code{fmp_set_key()}   – Set API key (alias: \code{set_fmp_key()} – deprecated)
-\item \code{fmp_prices()}    – Historical quotes (v3 & stable)
-\item \code{fmp_prices_divadj()} – dividend-adjusted EOD (stable)
-\item \code{fmp_metrics()}   – Metrics (key/ratios/growth/ev; optional TTM; v3 & stable)
-\item \code{fmp_profile()}   – Company profiles (v3 & stable)
-\item \code{fmp_screener()} – company screener (stable)
-\item \code{fmp_earnings()} – earnings report (stable)
-\item \strong{Bulk/CSV (stable):}
+\item \code{fmp_set_key()} – Set API key (alias: \code{set_fmp_key()} – deprecated)
+\item \strong{Prices & market data}
+\itemize{
+\item \code{fmp_prices()} – Historical quotes (v3 & stable)
+\item \code{fmp_prices_divadj()} – Dividend-adjusted EOD prices (stable)
+\item \code{fmp_quote()} – Real-time stock quote(s) (stable)
+}
+\item \strong{Fundamentals & company data}
+\itemize{
+\item \code{fmp_metrics()} – Metrics (\code{key} / \code{ratios} / \code{growth} / \code{ev}; v3 & stable)
+\item \code{fmp_profile()} – Company profiles (v3 & stable)
+\item \code{fmp_earnings()} – Earnings reports (stable)
+\item \code{fmp_dividends()} – Dividend history (stable)
+\item \code{fmp_company_screener()} – Company screener (stable)
+}
+\item \strong{News}
+\itemize{
+\item \code{fmp_news()} – News/articles from one stable news endpoint
+\item \code{fmp_news_bulk()} – Combined news from multiple stable endpoints
+}
+\item \strong{Quotes & lists}
+\itemize{
+\item \code{fmp_fx_quotes()} – All available forex pairs
+\item \code{fmp_crypto_quotes()} – All available crypto quotes
+\item \code{fmp_commodity_quotes()} – All available commodity quotes
+\item \code{fmp_exchanges()} – Available exchanges/venues
+\item \code{fmp_stock_list()} – Full stock ticker list
+\item \code{fmp_index_constituents()} – Constituents of major US indices
+}
+\item \strong{Bulk/CSV (stable)}
 \itemize{
 \item \code{fmp_profiles_bulk()} / \code{fmp_profiles_bulk_all()} – Company profiles by parts / all
-\item \code{fmp_bulk_ttm()} – bulk TTM key-metrics/ratios (stable)
-\item \code{fmp_metrics_ttm_bulk(type = c("key","ratios"))}  – Key-Metrics-TTM or Ratios-TTM
-\item \code{fmp_eod_bulk(date)}                               – Full EOD dump for a date
-}
-\item \strong{Quotes & Lists:}
-\itemize{
-\item FX:         \code{fmp_fx_quotes()}         – All available forex pairs
-\item Crypto:     \code{fmp_crypto_quotes()}     – All available crypto quotes
-\item Commodities:\code{fmp_commodity_quotes()}  – All available commodity quotes
-\item Exchanges:  \code{fmp_exchanges()}         – Available exchanges/venues
-\item Stocks:     \code{fmp_stock_list()}        – Full stock ticker list
-\item Quotes:     \code{fmp_quote()}             – batch quote (stable)
-\item Indexes:    \code{fmp_index_constituents()}- constituents of Indexes
+\item \code{fmp_metrics_ttm_bulk()} – Bulk TTM key-metrics or ratios
+\item \code{fmp_eod_bulk()} – Full EOD dump for a date
+\item \code{fmp_income_statement_bulk()} – Bulk income statement (standard / growth)
+\item \code{fmp_balance_sheet_bulk()} – Bulk balance sheet (standard / growth)
+\item \code{fmp_cash_flow_bulk()} – Bulk cash flow statement (standard / growth)
 }
 }
+}
+\section{Quick Start}{
 
-\strong{Quick Start}
 \preformatted{
 library(fmpbrunch)
-fmp_set_key("YOUR_KEY")  # falls back to Sys.getenv("FMP_API_KEY")
+
+# Use key from environment...
+Sys.setenv(FMP_API_KEY = "YOUR_KEY")
+
+# ...or set it explicitly for the session
+fmp_set_key("YOUR_KEY")
 
 # Prices & metrics
 fmp_prices(c("AAPL","MSFT"), from = "2025-10-15", version = "stable")
@@ -58,20 +78,30 @@ fmp_exchanges("stable")
 fmp_stock_list("v3")
 fmp_index_constituents("dowjones")
 
+# News
+fmp_news("general", limit = 10)
+fmp_news_bulk(endpoints = c("general","stock"), pages = 0:1, limit = 10)
+
 # Bulk/CSV (stable)
-fmp_profiles_bulk(0:2)                           # specific parts
-fmp_profiles_bulk_all(max_parts = 100)           # auto until empty
-fmp_metrics_ttm_bulk("key")                      # or "ratios"
-fmp_eod_bulk("2024-10-22")                       # full-day dump
+fmp_profiles_bulk(0:2)
+fmp_profiles_bulk_all(max_parts = 100)
+fmp_metrics_ttm_bulk("key")
+fmp_eod_bulk("2024-10-22")
+fmp_income_statement_bulk(2025, "Q1", variant = "standard")
 }
 }
+
 \seealso{
 \code{\link[=fmp_set_key]{fmp_set_key()}}, \code{\link[=set_fmp_key]{set_fmp_key()}},
-\code{\link[=fmp_prices]{fmp_prices()}}, \code{\link[=fmp_metrics]{fmp_metrics()}}, \code{\link[=fmp_profile]{fmp_profile()}},
+\code{\link[=fmp_prices]{fmp_prices()}}, \code{\link[=fmp_prices_divadj]{fmp_prices_divadj()}}, \code{\link[=fmp_quote]{fmp_quote()}},
+\code{\link[=fmp_metrics]{fmp_metrics()}}, \code{\link[=fmp_profile]{fmp_profile()}}, \code{\link[=fmp_earnings]{fmp_earnings()}}, \code{\link[=fmp_dividends]{fmp_dividends()}},
+\code{\link[=fmp_company_screener]{fmp_company_screener()}},
+\code{\link[=fmp_news]{fmp_news()}}, \code{\link[=fmp_news_bulk]{fmp_news_bulk()}},
 \code{\link[=fmp_profiles_bulk]{fmp_profiles_bulk()}}, \code{\link[=fmp_profiles_bulk_all]{fmp_profiles_bulk_all()}},
 \code{\link[=fmp_metrics_ttm_bulk]{fmp_metrics_ttm_bulk()}}, \code{\link[=fmp_eod_bulk]{fmp_eod_bulk()}},
+\code{\link[=fmp_income_statement_bulk]{fmp_income_statement_bulk()}}, \code{\link[=fmp_balance_sheet_bulk]{fmp_balance_sheet_bulk()}}, \code{\link[=fmp_cash_flow_bulk]{fmp_cash_flow_bulk()}},
 \code{\link[=fmp_fx_quotes]{fmp_fx_quotes()}}, \code{\link[=fmp_crypto_quotes]{fmp_crypto_quotes()}}, \code{\link[=fmp_commodity_quotes]{fmp_commodity_quotes()}},
-\code{\link[=fmp_exchanges]{fmp_exchanges()}}, \code{\link[=fmp_stock_list]{fmp_stock_list()}}
+\code{\link[=fmp_exchanges]{fmp_exchanges()}}, \code{\link[=fmp_stock_list]{fmp_stock_list()}}, \code{\link[=fmp_index_constituents]{fmp_index_constituents()}}
 }
 \author{
 \strong{Maintainer}: Börsenbrunch \email{boersenbrunch@gmail.com}

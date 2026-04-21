@@ -4,76 +4,94 @@ output: github_document
 
 # fmpbrunch
 
-Minimal R client for FinancialModelingPrep (v3 & stable).  
-Get prices, metrics (key/ratios/growth/EV), profiles, FX/crypto/commodities quotes, and exchange lists — as tidy tibbles.
+Minimal R client for FinancialModelingPrep (v3 & stable).
 
+Get prices, metrics, profiles, news, quotes, screeners, and bulk statement data as tidy tibbles.
 
-# Install
+## Install
 
-
-
+```r
 install.packages("pak")
-
 pak::pak("Boersenbrunch/fmpbrunch")
+```
 
+## Quickstart
 
-
-
-#  Quickstart
-
-
+```r
 library(fmpbrunch)
 
+# Use your FMP key from the environment...
+Sys.setenv(FMP_API_KEY = "YOUR_KEY")
 
-# Set your FMP key
-Sys.setenv(FMP_API_KEY = "YOUR_KEY") or via  
-
+# ...or set it explicitly for the current session
 fmp_set_key("YOUR_KEY")
+```
 
+## Currently available endpoints
 
+### Prices and quotes
 
+```r
+fmp_prices(c("AAPL","MSFT"), from = "2025-10-15", version = "stable")
+fmp_prices_divadj(c("AAPL","MSFT"), from = "2024-10-01")
+fmp_quote(c("AAPL","MSFT"))
+```
 
-#  Currently avaialble endpoints
+### Metrics and company data
 
-
-Prices
-
-fmp_prices(c("AAPL","MSFT"), from = "2025-10-15", version = "stable") 
-
-Metrics
-
-fmp_metrics("AAPL", metric = "key", ttm = TRUE, version = "stable") 
-
-Profiles
-
+```r
+fmp_metrics("AAPL", metric = "key", ttm = TRUE, version = "stable")
 fmp_profile(c("AAPL","MSFT"), version = "stable")
+fmp_earnings(c("AAPL","MSFT"))
+fmp_dividends(c("AAPL","MSFT"))
+fmp_company_screener(
+  sector = "Technology",
+  country = "US",
+  marketCapMoreThan = 1e9,
+  isActivelyTrading = TRUE,
+  limit = 100
+)
+```
 
-FX all avaialble pairs  
+### News
 
-fmp_fx_quotes("stable")  
+```r
+fmp_news("general", page = 0, limit = 10)
+fmp_news("stock", pages = 0:1, limit = 10)
+fmp_news_bulk(endpoints = c("general","stock"), pages = 0:1, limit = 10)
+```
 
-All avaialble Cryptos
+### Lists and reference endpoints
 
-fmp_crypto_quotes("stable")  
+```r
+fmp_fx_quotes("stable")
+fmp_crypto_quotes("stable")
+fmp_commodity_quotes("stable")
+fmp_exchanges("stable")
+fmp_stock_list("stable")
+fmp_index_constituents("dowjones")
+```
 
-All avaialble Commodities
+### Bulk endpoints
 
-fmp_commodity_quotes("stable") 
-
-All avaialble exchanges
-
-fmp_exchanges("stable")   
-
-Bulk profile request
-
+```r
 fmp_profiles_bulk(0)
-
 fmp_profiles_bulk_all(max_parts = 100)
 
+fmp_metrics_ttm_bulk(type = "key")
+fmp_eod_bulk(date = "2025-11-11")
 
+fmp_income_statement_bulk(2025, "Q1", variant = "standard")
+fmp_balance_sheet_bulk(2025, "Q1", variant = "standard")
+fmp_cash_flow_bulk(2025, "Q1", variant = "standard")
+```
 
-#     License
+## Notes
 
+- `fmp_set_key()` is optional if `FMP_API_KEY` is already available in your environment.
+- Most functions return a tibble and try to harmonize common fields such as `symbol`, dates, and numeric columns.
+- News endpoints return both original API fields and standardized helper columns like `published_at`, `publisher_std`, `url_std`, and `text_std`.
+
+## License
 
 MIT © Börsenbrunch
-

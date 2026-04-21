@@ -2,36 +2,54 @@
 #'
 #' @description
 #' Lightweight R client for FinancialModelingPrep. Supports prices,
-#' metrics (key/ratios/growth/ev), profiles, and various quote/list endpoints—
-#' all returned as tidy tibbles.
+#' metrics, profiles, news, quotes, screeners, bulk CSV endpoints,
+#' and various list endpoints — all returned as tidy tibbles.
 #'
 #' @details
 #' **Functions:**
-#' - `fmp_set_key()`   – Set API key (alias: `set_fmp_key()` – deprecated)
-#' - `fmp_prices()`    – Historical quotes (v3 & stable)
-#' - `fmp_prices_divadj()` – dividend-adjusted EOD (stable)
-#' - `fmp_metrics()`   – Metrics (key/ratios/growth/ev; optional TTM; v3 & stable)
-#' - `fmp_profile()`   – Company profiles (v3 & stable)
-#' - `fmp_screener()` – company screener (stable)
-#' - `fmp_earnings()` – earnings report (stable)
-#' - **Bulk/CSV (stable):**
-#'   - `fmp_profiles_bulk()` / `fmp_profiles_bulk_all()` – Company profiles by parts / all
-#'   - `fmp_bulk_ttm()` – bulk TTM key-metrics/ratios (stable)
-#'   - `fmp_metrics_ttm_bulk(type = c("key","ratios"))`  – Key-Metrics-TTM or Ratios-TTM
-#'   - `fmp_eod_bulk(date)`                               – Full EOD dump for a date
-#' - **Quotes & Lists:**
-#'   - FX:         `fmp_fx_quotes()`         – All available forex pairs
-#'   - Crypto:     `fmp_crypto_quotes()`     – All available crypto quotes
-#'   - Commodities:`fmp_commodity_quotes()`  – All available commodity quotes
-#'   - Exchanges:  `fmp_exchanges()`         – Available exchanges/venues
-#'   - Stocks:     `fmp_stock_list()`        – Full stock ticker list
-#'   - Quotes:     `fmp_quote()`             – batch quote (stable)
-#'   - Indexes:    `fmp_index_constituents()`- constituents of Indexes
+#' - `fmp_set_key()` – Set API key (alias: `set_fmp_key()` – deprecated)
 #'
-#' **Quick Start**
+#' - **Prices & market data**
+#'   - `fmp_prices()` – Historical quotes (v3 & stable)
+#'   - `fmp_prices_divadj()` – Dividend-adjusted EOD prices (stable)
+#'   - `fmp_quote()` – Real-time stock quote(s) (stable)
+#'
+#' - **Fundamentals & company data**
+#'   - `fmp_metrics()` – Metrics (`key` / `ratios` / `growth` / `ev`; v3 & stable)
+#'   - `fmp_profile()` – Company profiles (v3 & stable)
+#'   - `fmp_earnings()` – Earnings reports (stable)
+#'   - `fmp_dividends()` – Dividend history (stable)
+#'   - `fmp_company_screener()` – Company screener (stable)
+#'
+#' - **News**
+#'   - `fmp_news()` – News/articles from one stable news endpoint
+#'   - `fmp_news_bulk()` – Combined news from multiple stable endpoints
+#'
+#' - **Quotes & lists**
+#'   - `fmp_fx_quotes()` – All available forex pairs
+#'   - `fmp_crypto_quotes()` – All available crypto quotes
+#'   - `fmp_commodity_quotes()` – All available commodity quotes
+#'   - `fmp_exchanges()` – Available exchanges/venues
+#'   - `fmp_stock_list()` – Full stock ticker list
+#'   - `fmp_index_constituents()` – Constituents of major US indices
+#'
+#' - **Bulk/CSV (stable)**
+#'   - `fmp_profiles_bulk()` / `fmp_profiles_bulk_all()` – Company profiles by parts / all
+#'   - `fmp_metrics_ttm_bulk()` – Bulk TTM key-metrics or ratios
+#'   - `fmp_eod_bulk()` – Full EOD dump for a date
+#'   - `fmp_income_statement_bulk()` – Bulk income statement (standard / growth)
+#'   - `fmp_balance_sheet_bulk()` – Bulk balance sheet (standard / growth)
+#'   - `fmp_cash_flow_bulk()` – Bulk cash flow statement (standard / growth)
+#'
+#' @section Quick Start:
 #' \preformatted{
 #' library(fmpbrunch)
-#' fmp_set_key("YOUR_KEY")  # falls back to Sys.getenv("FMP_API_KEY")
+#'
+#' # Use key from environment...
+#' Sys.setenv(FMP_API_KEY = "YOUR_KEY")
+#'
+#' # ...or set it explicitly for the session
+#' fmp_set_key("YOUR_KEY")
 #'
 #' # Prices & metrics
 #' fmp_prices(c("AAPL","MSFT"), from = "2025-10-15", version = "stable")
@@ -47,20 +65,29 @@
 #' fmp_stock_list("v3")
 #' fmp_index_constituents("dowjones")
 #'
+#' # News
+#' fmp_news("general", limit = 10)
+#' fmp_news_bulk(endpoints = c("general","stock"), pages = 0:1, limit = 10)
+#'
 #' # Bulk/CSV (stable)
-#' fmp_profiles_bulk(0:2)                           # specific parts
-#' fmp_profiles_bulk_all(max_parts = 100)           # auto until empty
-#' fmp_metrics_ttm_bulk("key")                      # or "ratios"
-#' fmp_eod_bulk("2024-10-22")                       # full-day dump
+#' fmp_profiles_bulk(0:2)
+#' fmp_profiles_bulk_all(max_parts = 100)
+#' fmp_metrics_ttm_bulk("key")
+#' fmp_eod_bulk("2024-10-22")
+#' fmp_income_statement_bulk(2025, "Q1", variant = "standard")
 #' }
 #'
 #' @seealso
 #' [`fmp_set_key()`], [`set_fmp_key()`],
-#' [`fmp_prices()`], [`fmp_metrics()`], [`fmp_profile()`],
+#' [`fmp_prices()`], [`fmp_prices_divadj()`], [`fmp_quote()`],
+#' [`fmp_metrics()`], [`fmp_profile()`], [`fmp_earnings()`], [`fmp_dividends()`],
+#' [`fmp_company_screener()`],
+#' [`fmp_news()`], [`fmp_news_bulk()`],
 #' [`fmp_profiles_bulk()`], [`fmp_profiles_bulk_all()`],
 #' [`fmp_metrics_ttm_bulk()`], [`fmp_eod_bulk()`],
+#' [`fmp_income_statement_bulk()`], [`fmp_balance_sheet_bulk()`], [`fmp_cash_flow_bulk()`],
 #' [`fmp_fx_quotes()`], [`fmp_crypto_quotes()`], [`fmp_commodity_quotes()`],
-#' [`fmp_exchanges()`], [`fmp_stock_list()`]
+#' [`fmp_exchanges()`], [`fmp_stock_list()`], [`fmp_index_constituents()`]
 #'
 #' @docType package
 #' @name fmpbrunch
